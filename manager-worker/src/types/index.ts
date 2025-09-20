@@ -4,15 +4,18 @@ export interface Env {
   USERS_KV: KVNamespace;
   TOKENS_KV: KVNamespace;
   SESSIONS_KV: KVNamespace;
-  
+
+  // Assets binding
+  ASSETS: Fetcher;
+
   // D1 Database (optional)
   DB?: D1Database;
-  
+
   // Secrets
   JWT_SECRET: string;
   ADMIN_PASSWORD: string;
   EMAIL_API_KEY?: string;
-  
+
   // Environment variables
   ALLOWED_ORIGINS: string;
   JWT_EXPIRES_IN: string;

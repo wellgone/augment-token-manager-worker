@@ -1,18 +1,23 @@
 {
-	"name": "augment-token-manager-worker",
+	"name": "augtoken-manager",
 	"version": "1.0.0",
 	"description": "Cloudflare Worker backend for Augment Token Manager",
 	"main": "src/index.ts",
 	"type": "module",
 	"private": true,
 	"scripts": {
-		"dev": "wrangler dev --assets=./dist",
+		"dev": "wrangler dev --config wrangler-dev.toml",
 		"deploy": "wrangler deploy",
+		"deploy:dev": "wrangler deploy --config wrangler-dev.toml",
 		"build": "wrangler build",
 		"types": "wrangler types",
 		"typecheck": "wrangler types && tsc --noEmit",
 		"lint": "eslint src --ext .ts",
-		"format": "prettier --write src/**/*.ts"
+		"format": "prettier --write src/**/*.ts",
+		"secret:dev": "wrangler secret put --config wrangler-dev.toml",
+		"secret:prod": "wrangler secret put",
+		"kv:create:dev": "wrangler kv:namespace create USERS_KV --preview && wrangler kv:namespace create TOKENS_KV --preview && wrangler kv:namespace create SESSIONS_KV --preview",
+		"kv:create:prod": "wrangler kv:namespace create USERS_KV && wrangler kv:namespace create TOKENS_KV && wrangler kv:namespace create SESSIONS_KV"
 	},
 	"dependencies": {
 		"jose": "^5.9.6"

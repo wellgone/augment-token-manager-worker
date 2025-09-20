@@ -1,4 +1,4 @@
-name = "augment-token-manager-worker"
+name = "augtoken-manager"
 main = "src/index.ts"
 compatibility_date = "2025-09-20"
 compatibility_flags = ["nodejs_compat"]
@@ -6,8 +6,12 @@ compatibility_flags = ["nodejs_compat"]
 [observability]
 enabled = true
 
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+
 [vars]
-ALLOWED_ORIGINS = "http://localhost:5173,https://your-domain.com"
+ALLOWED_ORIGINS = "https://your-domain.com,https://token-manager.your-domain.com"
 JWT_EXPIRES_IN = "24h"
 REFRESH_TOKEN_EXPIRES_IN = "7d"
 RATE_LIMIT_LOGIN = "10"
@@ -15,20 +19,20 @@ RATE_LIMIT_API = "100"
 
 [[kv_namespaces]]
 binding = "USERS_KV"
-id = "users_namespace"
-preview_id = "users_namespace_preview"
+id = "users_namespace_prod"
+preview_id = "users_namespace_prod_preview"
 
 [[kv_namespaces]]
 binding = "TOKENS_KV"
-id = "tokens_namespace"
-preview_id = "tokens_namespace_preview"
+id = "tokens_namespace_prod"
+preview_id = "tokens_namespace_prod_preview"
 
 [[kv_namespaces]]
 binding = "SESSIONS_KV"
-id = "sessions_namespace"
-preview_id = "sessions_namespace_preview"
+id = "sessions_namespace_prod"
+preview_id = "sessions_namespace_prod_preview"
 
-# Secrets (use: wrangler secret put SECRET_NAME)
+# Production secrets (use: wrangler secret put SECRET_NAME)
 # JWT_SECRET - Secret key for JWT signing
 # ADMIN_PASSWORD - Admin login password
 # EMAIL_API_KEY - Email service API key (optional)

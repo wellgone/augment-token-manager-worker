@@ -12,7 +12,7 @@ const copyIconsPlugin = () => {
     name: 'copy-icons',
     writeBundle() {
       const iconsDir = resolve(__dirname, 'src/assets/icons')
-      const distIconsDir = resolve(__dirname, 'dist/icons')
+      const distIconsDir = resolve(__dirname, '../manager-worker/dist/icons')
 
       // 创建目标目录
       if (!existsSync(distIconsDir)) {
@@ -35,7 +35,7 @@ const copyIconsPlugin = () => {
         const dest = resolve(distIconsDir, file)
         if (existsSync(src)) {
           copyFileSync(src, dest)
-          console.log(`Copied ${file} to dist/icons/`)
+          console.log(`Copied ${file} to manager-worker/dist/icons/`)
         }
       })
     }
@@ -74,6 +74,10 @@ export default defineConfig(({ mode }) => {
         '@': fileURLToPath(new URL('./src', import.meta.url))
       },
     },
+    build: {
+      outDir: '../manager-worker/dist',
+      emptyOutDir: true,
+    },
     define: {
       // 将功能标志注入到应用中
       __FEATURE_FLAGS__: JSON.stringify(featureFlags)
@@ -83,9 +87,9 @@ export default defineConfig(({ mode }) => {
       port: 5173,      // 指定端口
       proxy: {
         '/api': {
-          target: 'https://10.0.0.52:14444',
+          target: 'http://localhost:8787',
           changeOrigin: true,
-          secure: true,
+          secure: false,
           configure: (proxy, _options) => {
             proxy.on('error', (err, _req, _res) => {
               console.log('proxy error', err);

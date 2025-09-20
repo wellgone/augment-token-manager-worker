@@ -128,6 +128,11 @@ export default {
         return new Response(null, { status: 404 });
       }
 
+      // Handle static assets (frontend files)
+      if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/health')) {
+        return env.ASSETS.fetch(request);
+      }
+
       // Handle CORS preflight
       const corsResponse = await corsMiddleware(request, env, ctx);
       if (corsResponse) {
