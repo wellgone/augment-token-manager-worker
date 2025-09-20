@@ -15,7 +15,9 @@ export function createSuccessResponse<T>(
     timestamp: new Date().toISOString(),
   };
 
-  return new Response(JSON.stringify(response), {
+  const responseBody = JSON.stringify(response);
+
+  return new Response(responseBody, {
     status,
     headers: {
       'Content-Type': 'application/json',
@@ -166,9 +168,11 @@ export function createInternalErrorResponse(message: string = 'Internal server e
 export async function parseJsonBody<T>(request: Request): Promise<T> {
   try {
     const text = await request.text();
+
     if (!text.trim()) {
       throw new Error('Request body is empty');
     }
+
     return JSON.parse(text) as T;
   } catch (error) {
     throw new Error('Invalid JSON in request body');

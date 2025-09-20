@@ -331,9 +331,19 @@ export async function validateTokenStatusHandler(
       return createErrorResponse('Access denied', 403);
     }
     
-    const status = await tokenService.validateTokenStatus(tokenId);
-    
-    return createSuccessResponse(status, 'Token status validated');
+    const result = await tokenService.validateTokenStatus(tokenId);
+
+    const message = result.isValid ? 'Token状态正常' : 'Token已失效，状态已更新';
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: result.token,
+      valid: result.isValid,
+      message: message
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
     
   } catch (error) {
     console.error('Validate token status error:', error);

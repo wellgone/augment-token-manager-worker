@@ -192,38 +192,80 @@ export class TokenService {
   async validateTokenStatus(tokenId: string): Promise<{
     isValid: boolean;
     status: string;
-    portalInfo?: any;
+    token?: TokenRecord;
   }> {
     const token = await this.getTokenById(tokenId);
     if (!token) {
       return { isValid: false, status: 'Token not found' };
     }
-    
-    // Parse portal info to check status
-    let portalInfo: any = {};
+
     try {
-      portalInfo = JSON.parse(token.portal_info || '{}');
-    } catch {
-      // Invalid JSON, treat as empty
+      // 检查必要字段
+      if (!token.tenant_url || !token.access_token) {
+        return { isValid: false, status: 'Token缺少必要的字段', token };
+      }
+
+      // 构建请求URL
+      const baseURL = token.tenant_url.replace(/\/$/, '');
+      const apiUrl = `${baseURL}/get-models`;
+
+      // 构建请求头
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token.access_token}`
+      };
+      // 发送验证请求
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: headers
+      });
+
+      let isValid = false;
+      let status = '';
+
+      console.log('response:', response);
+
+      if (response.ok) {
+        // 验证成功 - response.ok为true表示token有效
+        isValid = true;
+        status = 'Token状态正常';
+      } else {
+        // 验证失败 - response.ok为false表示token失效或其他错误
+        if (response.status === 401 || response.status === 403) {
+          isValid = false;
+          status = 'Token已失效';
+        } else {
+          isValid = false;
+          status = `验证失败，状态码: ${response.status}`;
+        }
+      }
+
+      // 更新ban_status，但保留原有的portal_info
+      const banStatus = isValid ? '{}' : JSON.stringify({ status: 'ACTIVE', reason: 'Token validation failed' });
+
+      const updatedToken: TokenRecord = {
+        ...token,
+        ban_status: banStatus,
+        updated_at: new Date().toISOString(),
+        // 保留原有的portal_info，不要覆盖
+      };
+
+      await this.env.TOKENS_KV.put(`token:${tokenId}`, JSON.stringify(updatedToken));
+
+      return {
+        isValid,
+        status,
+        token: updatedToken,
+      };
+
+    } catch (error) {
+      console.error('Token validation error:', error);
+      return {
+        isValid: false,
+        status: `验证过程中发生错误: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        token,
+      };
     }
-    
-    // Check ban status
-    let banStatus: any = {};
-    try {
-      banStatus = JSON.parse(token.ban_status || '{}');
-    } catch {
-      // Invalid JSON, treat as empty
-    }
-    
-    // Simple validation logic (customize based on your needs)
-    const isBanned = banStatus.banned === true;
-    const hasExpired = portalInfo.expires_at && new Date(portalInfo.expires_at) < new Date();
-    
-    return {
-      isValid: !isBanned && !hasExpired,
-      status: isBanned ? 'banned' : hasExpired ? 'expired' : 'active',
-      portalInfo,
-    };
   }
 
   /**
@@ -234,17 +276,145 @@ export class TokenService {
     if (!token) {
       return null;
     }
-    
-    // In a real implementation, you would make API calls to refresh the token data
-    // For now, just update the updated_at timestamp
-    const updatedToken: TokenRecord = {
-      ...token,
-      updated_at: new Date().toISOString(),
-    };
-    
-    await this.env.TOKENS_KV.put(`token:${tokenId}`, JSON.stringify(updatedToken));
-    
-    return updatedToken;
+
+    try {
+      // 从 portal_url 中提取 token 参数
+      const portalUrl = token.portal_url;
+      if (!portalUrl) {
+        throw new Error('Token 没有 portal_url 信息');
+      }
+
+      const tokenParam = this.extractTokenFromURL(portalUrl);
+      if (!tokenParam) {
+        throw new Error('从 portal_url 解析 token 参数失败');
+      }
+
+      // 第一步：获取客户信息
+      const customerInfo = await this.getCustomerFromLink(tokenParam);
+
+      // 第二步：获取账户余额信息
+      const ledgerInfo = await this.getLedgerSummary(customerInfo, tokenParam);
+
+      // 第三步：更新 portal_info
+      const portalInfo = {
+        credits_balance: this.parseCreditsBalance(ledgerInfo.credits_balance),
+        is_active: ledgerInfo.credit_blocks.length > 0 ? ledgerInfo.credit_blocks[0].is_active : false,
+        expiry_date: ledgerInfo.credit_blocks.length > 0 ? ledgerInfo.credit_blocks[0].expiry_date : '',
+      };
+
+      const updatedToken: TokenRecord = {
+        ...token,
+        portal_info: JSON.stringify(portalInfo),
+        updated_at: new Date().toISOString(),
+      };
+
+      await this.env.TOKENS_KV.put(`token:${tokenId}`, JSON.stringify(updatedToken));
+
+      return updatedToken;
+
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      // 如果刷新失败，至少更新时间戳
+      const updatedToken: TokenRecord = {
+        ...token,
+        updated_at: new Date().toISOString(),
+      };
+
+      await this.env.TOKENS_KV.put(`token:${tokenId}`, JSON.stringify(updatedToken));
+
+      return updatedToken;
+    }
+  }
+
+  /**
+   * 从 portal_url 中提取 token 参数
+   */
+  private extractTokenFromURL(portalUrl: string): string | null {
+    try {
+      const url = new URL(portalUrl);
+      return url.searchParams.get('token');
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 第一步：获取客户信息
+   */
+  private async getCustomerFromLink(tokenParam: string): Promise<any> {
+    const apiUrl = `https://portal.withorb.com/api/v1/customer_from_link?token=${tokenParam}`;
+
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
+        'Connection': 'keep-alive',
+        'Referer': `https://portal.withorb.com/view?token=${tokenParam}`,
+        'Origin': 'https://portal.withorb.com',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`客户信息 API 返回错误状态码: ${response.status}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * 第二步：获取账户余额信息
+   */
+  private async getLedgerSummary(customerInfo: any, tokenParam: string): Promise<any> {
+    if (!customerInfo.customer?.ledger_pricing_units?.length) {
+      throw new Error('客户信息中没有 pricing unit');
+    }
+
+    const customerId = customerInfo.customer.id;
+    const pricingUnitId = customerInfo.customer.ledger_pricing_units[0].id;
+
+    const apiUrl = `https://portal.withorb.com/api/v1/customers/${customerId}/ledger_summary?pricing_unit_id=${pricingUnitId}&token=${tokenParam}`;
+
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'identity',
+        'Connection': 'keep-alive',
+        'Referer': `https://portal.withorb.com/view?token=${tokenParam}`,
+        'Origin': 'https://portal.withorb.com',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`账户余额 API 返回错误状态码: ${response.status}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * 解析 credits_balance 字符串为数字
+   */
+  private parseCreditsBalance(creditsStr: string): number {
+    // 移除小数点，将 "16.00" 转换为 16
+    const dotIndex = creditsStr.indexOf('.');
+    if (dotIndex !== -1) {
+      creditsStr = creditsStr.substring(0, dotIndex);
+    }
+
+    return parseInt(creditsStr, 10) || 0;
   }
 
   /**

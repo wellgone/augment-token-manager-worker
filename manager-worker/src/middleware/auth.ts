@@ -12,40 +12,79 @@ export async function authMiddleware(
   ctx: ExecutionContext
 ): Promise<Response | null> {
   try {
-    // Extract session token from Authorization header
-    const sessionToken = extractSessionToken(request);
+    // 提取会话令牌
+    const authHeader = request.headers.get('Authorization');
 
-    if (!sessionToken) {
-      return createUnauthorizedResponse('Authorization token required');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Authentication required'
+      }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    // Create auth service and validate session
-    const authService = new AuthService(env);
-    const user = await authService.validateSession(sessionToken);
+    const sessionToken = authHeader.substring(7);
 
-    if (!user) {
-      return createUnauthorizedResponse('Invalid or expired session');
+    // 验证会话
+    const sessionData = await env.SESSIONS_KV.get(`session:${sessionToken}`);
+
+    if (!sessionData) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Invalid or expired session'
+      }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    // Get session data for middleware
-    const session = await authService.getSessionByToken(sessionToken);
-    if (!session) {
-      return createUnauthorizedResponse('Session not found');
+    const session = JSON.parse(sessionData);
+
+    // 检查会话是否过期
+    if (new Date(session.expiresAt) < new Date()) {
+      await env.SESSIONS_KV.delete(`session:${sessionToken}`);
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Session expired'
+      }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    // Check if user is active
-    if (!user.isActive) {
-      return createForbiddenResponse('User account is disabled');
-    }
+    // 将用户信息附加到请求
+    request.user = {
+      id: session.userId,
+      username: session.username,
+      email: `${session.username}@example.com`,
+      role: session.role,
+      createdAt: session.createdAt,
+      updatedAt: session.createdAt,
+      isActive: true,
+      passwordHash: ''
+    };
 
-    // Attach user and session to request
-    request.user = user;
-    request.session = session;
+    // 将会话信息附加到请求
+    request.session = {
+      sessionId: sessionToken,
+      userId: session.userId,
+      createdAt: session.createdAt,
+      expiresAt: session.expiresAt
+    };
 
-    return null; // Continue to next middleware/handler
+    return null; // 继续到下一个中间件/处理器
+
   } catch (error) {
     console.error('Auth middleware error:', error);
-    return createUnauthorizedResponse('Invalid session');
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Authentication failed'
+    }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 

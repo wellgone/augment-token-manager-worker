@@ -10,8 +10,10 @@ export async function corsMiddleware(
   ctx: ExecutionContext
 ): Promise<Response | null> {
   const origin = request.headers.get('Origin');
-  const allowedOrigins = env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
-  
+  const allowedOrigins = env.ALLOWED_ORIGINS ?
+    env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) :
+    ['*'];
+
   // Handle preflight OPTIONS requests
   if (request.method === 'OPTIONS') {
     return createCorsResponse(allowedOrigins);
@@ -46,15 +48,18 @@ export function isOriginAllowed(origin: string | null, allowedOrigins: string[])
  * Add CORS headers to response
  */
 export function addCorsHeaders(response: Response, env: Env, origin?: string | null): Response {
-  const allowedOrigins = env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
-  
+  // Use default allowed origins if not configured
+  const allowedOrigins = env.ALLOWED_ORIGINS ?
+    env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) :
+    ['*'];
+
   // Clone the response to modify headers
   const newResponse = new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
     headers: new Headers(response.headers),
   });
-  
+
   // Determine which origin to allow
   let allowOrigin = '*';
   if (origin && isOriginAllowed(origin, allowedOrigins)) {
@@ -62,7 +67,7 @@ export function addCorsHeaders(response: Response, env: Env, origin?: string | n
   } else if (allowedOrigins.length === 1 && allowedOrigins[0] !== '*') {
     allowOrigin = allowedOrigins[0];
   }
-  
+
   // Add CORS headers
   newResponse.headers.set('Access-Control-Allow-Origin', allowOrigin);
   newResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');

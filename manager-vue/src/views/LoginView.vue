@@ -29,37 +29,35 @@
               <label class="form-label">
                 密码
               </label>
-              <div class="input-group input-group-flat">
-                <input 
+              <div class="password-input-container">
+                <input
                   :type="showPassword ? 'text' : 'password'"
                   v-model="loginForm.password"
-                  class="form-control"
+                  class="form-control password-input"
                   :class="{ 'is-invalid': errors.password }"
                   placeholder="请输入密码"
                   autocomplete="current-password"
                   :disabled="isLoading"
                   required
                 >
-                <span class="input-group-text">
-                  <button 
-                    type="button"
-                    class="btn btn-link p-0 border-0"
-                    @click="togglePasswordVisibility"
-                    :disabled="isLoading"
-                  >
-                    <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                      <circle cx="12" cy="12" r="2"/>
-                      <path d="m22 12c-2.667 4.667 -6 7 -10 7s-7.333 -2.333 -10 -7c2.667 -4.667 6 -7 10 -7s7.333 2.333 10 7"/>
-                    </svg>
-                    <svg v-else xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-                      <line x1="3" y1="3" x2="21" y2="21"/>
-                      <path d="m10.584 10.587a2 2 0 0 0 2.828 2.83"/>
-                      <path d="m9.363 5.365a9.466 9.466 0 0 1 2.637 -.365c4 0 7.333 2.333 10 7c-.778 1.361 -1.612 2.524 -2.503 3.488m-2.14 1.861c-1.631 1.1 -3.415 1.651 -5.357 1.651c-4 0 -7.333 -2.333 -10 -7c1.369 -2.395 2.913 -4.175 4.632 -5.341"/>
-                    </svg>
-                  </button>
-                </span>
+                <button
+                  type="button"
+                  class="password-toggle-btn"
+                  @click="togglePasswordVisibility"
+                  :disabled="isLoading"
+                >
+                  <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <circle cx="12" cy="12" r="2"/>
+                    <path d="m22 12c-2.667 4.667 -6 7 -10 7s-7.333 -2.333 -10 -7c2.667 -4.667 6 -7 10 -7s7.333 2.333 10 7"/>
+                  </svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" class="icon" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <line x1="3" y1="3" x2="21" y2="21"/>
+                    <path d="m10.584 10.587a2 2 0 0 0 2.828 2.83"/>
+                    <path d="m9.363 5.365a9.466 9.466 0 0 1 2.637 -.365c4 0 7.333 2.333 10 7c-.778 1.361 -1.612 2.524 -2.503 3.488m-2.14 1.861c-1.631 1.1 -3.415 1.651 -5.357 1.651c-4 0 -7.333 -2.333 -10 -7c1.369 -2.395 2.913 -4.175 4.632 -5.341"/>
+                  </svg>
+                </button>
               </div>
               <div v-if="errors.password" class="invalid-feedback d-block">
                 {{ errors.password }}
@@ -221,9 +219,22 @@ const handleLogin = async () => {
       },
       body: JSON.stringify(loginForm.value)
     })
-    
-    const data: LoginResponse = await response.json()
-    
+
+    // 检查响应是否有内容
+    const responseText = await response.text()
+    if (!responseText) {
+      throw new Error('服务器返回空响应')
+    }
+
+    // 尝试解析JSON
+    let data: LoginResponse
+    try {
+      data = JSON.parse(responseText)
+    } catch (parseError) {
+      console.error('JSON解析失败:', parseError, '响应内容:', responseText)
+      throw new Error('服务器响应格式错误')
+    }
+
     if (data.success && data.data) {
       // 登录成功，保存session token
       localStorage.setItem('auth_token', data.data.sessionToken)
@@ -243,7 +254,7 @@ const handleLogin = async () => {
     }
   } catch (error) {
     console.error('登录请求失败:', error)
-    const errorMsg = '网络错误，请检查网络连接后重试'
+    const errorMsg = error instanceof Error ? error.message : '网络错误，请检查网络连接后重试'
     toast.error(errorMsg)
   } finally {
     isLoading.value = false
@@ -325,20 +336,20 @@ const handleLogin = async () => {
 
 /* 蓝色科技风标题样式 */
 .h2.text-muted {
-  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 50%, #1d4ed8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #ffffff !important;
   font-weight: 800;
   font-size: 2.2rem;
   margin-bottom: 0.5rem;
-  text-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+  text-shadow:
+    0 2px 4px rgba(30, 60, 114, 0.8),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.5px;
 }
 
 .text-muted {
-  color: rgba(255, 255, 255, 0.9) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
   font-weight: 600;
-  text-shadow: 0 1px 2px rgba(30, 60, 114, 0.5);
+  text-shadow: 0 1px 2px rgba(30, 60, 114, 0.6);
 }
 
 /* 蓝色科技风表单样式 */
@@ -369,6 +380,42 @@ const handleLogin = async () => {
 .form-control::placeholder {
   color: rgba(59, 130, 246, 0.6);
   font-weight: 500;
+}
+
+/* 密码输入容器样式 */
+.password-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input {
+  padding-right: 50px !important;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: rgba(59, 130, 246, 0.7);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.password-toggle-btn:hover {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.password-toggle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* 蓝色科技风输入组样式 */

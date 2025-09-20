@@ -1,6 +1,6 @@
 import { Env, AuthenticatedRequest, Route, HttpMethod } from './types/index.js';
 import { corsMiddleware, addCorsHeaders } from './middleware/cors.js';
-import { authMiddleware, adminMiddleware, createLoginRateLimitMiddleware, createApiRateLimitMiddleware } from './middleware/auth.js';
+import { authMiddleware, adminMiddleware, createApiRateLimitMiddleware } from './middleware/auth.js';
 import { createErrorResponse, createNotFoundResponse } from './utils/response.js';
 
 // Import route handlers
@@ -13,7 +13,8 @@ import {
   changePasswordHandler,
   getSessionsHandler,
   revokeSessionHandler,
-  generateUrlHandler
+  generateUrlHandler,
+  validateResponseHandler
 } from './routes/auth.js';
 
 import {
@@ -36,7 +37,7 @@ const routes: Route[] = [
   { method: 'GET', path: '/health', handler: healthHandler },
 
   // Auth routes (public)
-  { method: 'POST', path: '/api/auth/login', handler: loginHandler, middlewares: [createLoginRateLimitMiddleware] },
+  { method: 'POST', path: '/api/auth/login', handler: loginHandler },
 
   // Auth routes (protected)
   { method: 'POST', path: '/api/auth/logout', handler: logoutHandler, requiresAuth: true },
@@ -45,6 +46,7 @@ const routes: Route[] = [
   { method: 'GET', path: '/api/auth/validate', handler: validateTokenHandler, requiresAuth: true },
   { method: 'POST', path: '/api/auth/change-password', handler: changePasswordHandler, requiresAuth: true },
   { method: 'GET', path: '/api/auth/generate-url', handler: generateUrlHandler, requiresAuth: true },
+  { method: 'POST', path: '/api/auth/validate-response', handler: validateResponseHandler, requiresAuth: true },
 
   // Admin auth routes
   { method: 'GET', path: '/api/auth/sessions', handler: getSessionsHandler, requiresAuth: true, requiresAdmin: true },
@@ -127,16 +129,48 @@ export default {
 
       // Handle static assets (frontend files)
       if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/health')) {
-        // Try to fetch the requested file
-        const assetResponse = await env.ASSETS.fetch(request);
+        try {
+          // Try to fetch the requested file
+          const assetResponse = await env.ASSETS.fetch(request);
 
-        // If file not found and it's not a static asset, serve index.html for SPA routing
-        if (assetResponse.status === 404 && !url.pathname.includes('.')) {
-          const indexRequest = new Request(new URL('/', request.url), request);
-          return env.ASSETS.fetch(indexRequest);
+          // If file found or cached, return it with proper headers
+          if (assetResponse.status === 200 || assetResponse.status === 304) {
+            const response = new Response(assetResponse.body, {
+              status: assetResponse.status,
+              statusText: assetResponse.statusText,
+              headers: assetResponse.headers,
+            });
+
+            // Set proper MIME type for SVG files
+            if (url.pathname.endsWith('.svg')) {
+              response.headers.set('Content-Type', 'image/svg+xml');
+            }
+
+            // Add cache headers for static assets
+            if (url.pathname.includes('.')) {
+              response.headers.set('Cache-Control', 'public, max-age=31536000'); // 1 year
+              response.headers.set('ETag', `"${Date.now()}"`); // Simple ETag
+            }
+
+            return response;
+          }
+
+          // If file not found and it's not a static asset, serve index.html for SPA routing
+          if (assetResponse.status === 404 && !url.pathname.includes('.')) {
+            const indexRequest = new Request(new URL('/', request.url), request);
+            return env.ASSETS.fetch(indexRequest);
+          }
+
+          return assetResponse;
+        } catch (error) {
+          console.error('Asset fetch error:', error);
+          // Fallback to index.html for SPA routing
+          if (!url.pathname.includes('.')) {
+            const indexRequest = new Request(new URL('/', request.url), request);
+            return env.ASSETS.fetch(indexRequest);
+          }
+          return new Response('Asset not found', { status: 404 });
         }
-
-        return assetResponse;
       }
 
       // Handle CORS preflight
