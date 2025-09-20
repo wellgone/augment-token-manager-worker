@@ -1,9 +1,10 @@
 import { Env, AuthenticatedRequest, User, UserSession } from '../types/index.js';
-import { verifyAccessToken, extractBearerToken } from '../utils/jwt.js';
+import { extractSessionToken } from '../utils/auth.js';
 import { createUnauthorizedResponse, createForbiddenResponse } from '../utils/response.js';
+import { AuthService } from '../services/authService.js';
 
 /**
- * JWT Authentication middleware
+ * Session Authentication middleware
  */
 export async function authMiddleware(
   request: AuthenticatedRequest,
@@ -11,43 +12,27 @@ export async function authMiddleware(
   ctx: ExecutionContext
 ): Promise<Response | null> {
   try {
-    // Extract token from Authorization header
-    const token = extractBearerToken(request);
-    
-    if (!token) {
+    // Extract session token from Authorization header
+    const sessionToken = extractSessionToken(request);
+
+    if (!sessionToken) {
       return createUnauthorizedResponse('Authorization token required');
     }
 
-    // Verify JWT token
-    const payload = await verifyAccessToken(token, env.JWT_SECRET);
-    
-    // Check if session exists and is valid
-    const sessionKey = `session:${payload.sessionId}`;
-    const sessionData = await env.SESSIONS_KV.get(sessionKey);
-    
-    if (!sessionData) {
-      return createUnauthorizedResponse('Session expired or invalid');
+    // Create auth service and validate session
+    const authService = new AuthService(env);
+    const user = await authService.validateSession(sessionToken);
+
+    if (!user) {
+      return createUnauthorizedResponse('Invalid or expired session');
     }
 
-    const session: UserSession = JSON.parse(sessionData);
-    
-    // Check if session is expired
-    if (new Date(session.expiresAt) < new Date()) {
-      // Clean up expired session
-      await env.SESSIONS_KV.delete(sessionKey);
-      return createUnauthorizedResponse('Session expired');
+    // Get session data for middleware
+    const session = await authService.getSessionByToken(sessionToken);
+    if (!session) {
+      return createUnauthorizedResponse('Session not found');
     }
 
-    // Get user data
-    const userKey = `user:${payload.sub}`;
-    const userData = await env.USERS_KV.get(userKey);
-    
-    if (!userData) {
-      return createUnauthorizedResponse('User not found');
-    }
-
-    const user: User = JSON.parse(userData);
-    
     // Check if user is active
     if (!user.isActive) {
       return createForbiddenResponse('User account is disabled');
@@ -57,20 +42,10 @@ export async function authMiddleware(
     request.user = user;
     request.session = session;
 
-    // Update session activity (extend expiration)
-    const updatedSession: UserSession = {
-      ...session,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Extend by 24 hours
-    };
-    
-    await env.SESSIONS_KV.put(sessionKey, JSON.stringify(updatedSession), {
-      expirationTtl: 24 * 60 * 60, // 24 hours
-    });
-
     return null; // Continue to next middleware/handler
   } catch (error) {
     console.error('Auth middleware error:', error);
-    return createUnauthorizedResponse('Invalid token');
+    return createUnauthorizedResponse('Invalid session');
   }
 }
 
@@ -102,31 +77,21 @@ export async function optionalAuthMiddleware(
   ctx: ExecutionContext
 ): Promise<Response | null> {
   try {
-    const token = extractBearerToken(request);
-    
-    if (!token) {
+    const sessionToken = extractSessionToken(request);
+
+    if (!sessionToken) {
       return null; // No token, but that's okay
     }
 
-    // Try to verify token and attach user if valid
-    const payload = await verifyAccessToken(token, env.JWT_SECRET);
-    const sessionKey = `session:${payload.sessionId}`;
-    const sessionData = await env.SESSIONS_KV.get(sessionKey);
-    
-    if (sessionData) {
-      const session: UserSession = JSON.parse(sessionData);
-      
-      if (new Date(session.expiresAt) >= new Date()) {
-        const userKey = `user:${payload.sub}`;
-        const userData = await env.USERS_KV.get(userKey);
-        
-        if (userData) {
-          const user: User = JSON.parse(userData);
-          if (user.isActive) {
-            request.user = user;
-            request.session = session;
-          }
-        }
+    // Try to validate session and attach user if valid
+    const authService = new AuthService(env);
+    const user = await authService.validateSession(sessionToken);
+
+    if (user) {
+      const session = await authService.getSessionByToken(sessionToken);
+      if (session && user.isActive) {
+        request.user = user;
+        request.session = session;
       }
     }
 

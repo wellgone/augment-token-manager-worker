@@ -12,22 +12,21 @@ binding = "ASSETS"
 
 [vars]
 ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
-JWT_EXPIRES_IN = "24h"
-REFRESH_TOKEN_EXPIRES_IN = "7d"
+SESSION_EXPIRES_IN = "24h"
 RATE_LIMIT_LOGIN = "50"
 RATE_LIMIT_API = "500"
 
 [[kv_namespaces]]
 binding = "USERS_KV"
-preview_id = "1c0df174578c426e96d70e94eeca03bc"
+id = "1c0df174578c426e96d70e94eeca03bc"
 
 [[kv_namespaces]]
 binding = "TOKENS_KV"
-preview_id = "1c0df174578c426e96d70e94eeca03bc"
+id = "1c0df174578c426e96d70e94eeca03bc"
 
 [[kv_namespaces]]
 binding = "SESSIONS_KV"
-preview_id = "1c0df174578c426e96d70e94eeca03bc"
+id = "1c0df174578c426e96d70e94eeca03bc"
 
 # Development secrets (use: wrangler secret put SECRET_NAME --env dev)
 # JWT_SECRET - Secret key for JWT signing

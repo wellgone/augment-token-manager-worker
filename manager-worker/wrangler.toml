@@ -12,25 +12,21 @@ binding = "ASSETS"
 
 [vars]
 ALLOWED_ORIGINS = "https://your-domain.com,https://token-manager.your-domain.com"
-JWT_EXPIRES_IN = "24h"
-REFRESH_TOKEN_EXPIRES_IN = "7d"
+SESSION_EXPIRES_IN = "24h"
 RATE_LIMIT_LOGIN = "10"
 RATE_LIMIT_API = "100"
 
 [[kv_namespaces]]
 binding = "USERS_KV"
-id = "users_namespace_prod"
-preview_id = "users_namespace_prod_preview"
+id = "1c0df174578c426e96d70e94eeca03bc"
 
 [[kv_namespaces]]
 binding = "TOKENS_KV"
-id = "tokens_namespace_prod"
-preview_id = "tokens_namespace_prod_preview"
+id = "1c0df174578c426e96d70e94eeca03bc"
 
 [[kv_namespaces]]
 binding = "SESSIONS_KV"
-id = "sessions_namespace_prod"
-preview_id = "sessions_namespace_prod_preview"
+id = "1c0df174578c426e96d70e94eeca03bc"
 
 # Production secrets (use: wrangler secret put SECRET_NAME)
 # JWT_SECRET - Secret key for JWT signing

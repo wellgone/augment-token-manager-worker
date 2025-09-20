@@ -1116,6 +1116,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { toast } from '../utils/toast'
+import { apiGet, apiPost, apiPut, apiDelete } from '../utils/api'
 
 
 
@@ -1363,8 +1364,17 @@ const canImport = computed(() => {
 })
 
 // 生命周期
-onMounted(() => {
-  loadTokens()
+onMounted(async () => {
+  // 检查认证状态
+  const token = localStorage.getItem('auth_token')
+  if (!token) {
+    // 没有token，跳转到登录页
+    window.location.href = '/login'
+    return
+  }
+
+  // 有token，尝试加载数据
+  await loadTokens()
 })
 
 onUnmounted(() => {
@@ -1382,7 +1392,17 @@ const loadTokens = async (page: number = 1) => {
   isLoading.value = true
   try {
     // 一次性加载所有数据
-    const response = await fetch(`/api/tokens?limit=10000`)
+    const response = await apiGet(`/api/tokens?limit=10000`)
+
+    // 检查认证错误
+    if (response.status === 401) {
+      // 认证失败，清除token并跳转到登录页
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('username')
+      window.location.href = '/login'
+      return
+    }
+
     const data: TokenResponse = await response.json()
 
     if (data.success) {
@@ -1640,13 +1660,7 @@ const validateAndNextStep = async () => {
       }
     }
 
-    const response = await fetch('/api/auth/validate-response', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    })
+    const response = await apiPost('/api/auth/validate-response', payload)
 
     const data = await response.json()
 
@@ -1691,13 +1705,7 @@ const saveToken = async () => {
       email_note: emailNote.value
     }
 
-    const response = await fetch('/api/auth/save-token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    })
+    const response = await apiPost('/api/auth/save-token', payload)
 
     const data = await response.json()
 
@@ -1839,9 +1847,7 @@ const generateAuthUrl = async () => {
   isGeneratingUrl.value = true
 
   try {
-    const response = await fetch('/api/auth/generate-url', {
-      method: 'GET'
-    })
+    const response = await apiGet('/api/auth/generate-url')
 
     const data = await response.json()
 
@@ -1949,17 +1955,11 @@ const addSingleToken = async () => {
   }
 
   try {
-    const response = await fetch('/api/tokens', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        tenant_url: singleToken.value.tenant_url,
-        access_token: singleToken.value.access_token,
-        portal_url: singleToken.value.portal_url,
-        email_note: singleToken.value.email_note
-      })
+    const response = await apiPost('/api/tokens', {
+      tenant_url: singleToken.value.tenant_url,
+      access_token: singleToken.value.access_token,
+      portal_url: singleToken.value.portal_url,
+      email_note: singleToken.value.email_note
     })
 
     const data = await response.json()
@@ -2095,14 +2095,8 @@ const importBatchTokens = async () => {
       // 调用批量导入API
       isLoading.value = true
 
-      const response = await fetch('/api/tokens/batch-import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          tokens: validTokens
-        })
+      const response = await apiPost('/api/tokens/batch-import', {
+        tokens: validTokens
       })
 
       const data = await response.json()
@@ -2246,9 +2240,7 @@ const refreshToken = async (token: Token) => {
   isRefreshing.value = true
 
   try {
-    const response = await fetch(`/api/tokens/${token.id}/refresh`, {
-      method: 'POST'
-    })
+    const response = await apiPost(`/api/tokens/${token.id}/refresh`, {})
 
     const data = await response.json()
 
@@ -2276,7 +2268,7 @@ const refreshToken = async (token: Token) => {
 const showEditTokenModal = async (token: Token) => {
   try {
     // 调用API获取Token详情
-    const response = await fetch(`/api/tokens/${token.id}`)
+    const response = await apiGet(`/api/tokens/${token.id}`)
     const data = await response.json()
 
     if (data.success && data.data) {
@@ -2320,17 +2312,11 @@ const updateToken = async () => {
   }
 
   try {
-    const response = await fetch(`/api/tokens/${editingToken.value.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        tenant_url: editingToken.value.tenant_url,
-        access_token: editingToken.value.access_token,
-        portal_url: editingToken.value.portal_url,
-        email_note: editingToken.value.email_note
-      })
+    const response = await apiPut(`/api/tokens/${editingToken.value.id}`, {
+      tenant_url: editingToken.value.tenant_url,
+      access_token: editingToken.value.access_token,
+      portal_url: editingToken.value.portal_url,
+      email_note: editingToken.value.email_note
     })
 
     const data = await response.json()
@@ -2369,9 +2355,7 @@ const confirmDelete = async () => {
   }
 
   try {
-    const response = await fetch(`/api/tokens/${deletingToken.value.id}`, {
-      method: 'DELETE'
-    })
+    const response = await apiDelete(`/api/tokens/${deletingToken.value.id}`)
 
     const data = await response.json()
 
@@ -2429,9 +2413,7 @@ const confirmValidateToken = async () => {
   isValidating.value = true
 
   try {
-    const response = await fetch(`/api/tokens/${tokenToValidate.id}/validate`, {
-      method: 'POST'
-    })
+    const response = await apiPost(`/api/tokens/${tokenToValidate.id}/validate`, {})
 
     const data = await response.json()
 
@@ -2484,9 +2466,7 @@ const confirmBatchValidate = async () => {
     const token = tokens.value[i]
 
     try {
-      const response = await fetch(`/api/tokens/${token.id}/validate`, {
-        method: 'POST'
-      })
+      const response = await apiPost(`/api/tokens/${token.id}/validate`, {})
 
       const data = await response.json()
 
@@ -2557,9 +2537,7 @@ const confirmBatchRefresh = async () => {
     const token = tokens.value[i]
 
     try {
-      const response = await fetch(`/api/tokens/${token.id}/refresh`, {
-        method: 'POST'
-      })
+      const response = await apiPost(`/api/tokens/${token.id}/refresh`, {})
 
       const data = await response.json()
 

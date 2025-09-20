@@ -524,6 +524,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { toast } from '../utils/toast'
+import { apiGet, apiPost, apiDelete } from '../utils/api'
 
 interface ActivationCard {
   id: string
@@ -591,7 +592,7 @@ const loadActivationCards = async () => {
 
   try {
     // 不限制limit，获取所有数据
-    const response = await fetch('/api/recharge-cards?limit=1000')
+    const response = await apiGet('/api/recharge-cards?limit=1000')
     const data = await response.json()
 
     if (data.success) {
@@ -614,7 +615,7 @@ const loadActivationCards = async () => {
 // 加载Token列表
 const loadTokens = async () => {
   try {
-    const response = await fetch('/api/tokens?limit=1000')
+    const response = await apiGet('/api/tokens?limit=1000')
     const data = await response.json()
 
     if (data.success) {
@@ -632,7 +633,7 @@ const loadTokens = async () => {
 // 加载已绑定的Token ID列表
 const loadBoundTokens = async () => {
   try {
-    const response = await fetch('/api/recharge-cards/bound-tokens')
+    const response = await apiGet('/api/recharge-cards/bound-tokens')
     const data = await response.json()
 
     if (data.success && Array.isArray(data.data)) {
@@ -1054,9 +1055,7 @@ const confirmRefreshToken = async () => {
   refreshingTokenId.value = tokenId
 
   try {
-    const response = await fetch(`/api/tokens/${tokenId}/refresh`, {
-      method: 'POST'
-    })
+    const response = await apiPost(`/api/tokens/${tokenId}/refresh`, {})
 
     const data = await response.json()
 
@@ -1242,13 +1241,7 @@ const createCard = async () => {
       return
     }
 
-    const response = await fetch('/api/recharge-cards', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    })
+    const response = await apiPost('/api/recharge-cards', payload)
 
     const data = await response.json()
 
@@ -1283,9 +1276,7 @@ const refreshCard = async (card: ActivationCard) => {
   refreshingCardId.value = card.id
 
   try {
-    const response = await fetch(`/api/tokens/${card.bound_token_id}/refresh`, {
-      method: 'POST'
-    })
+    const response = await apiPost(`/api/tokens/${card.bound_token_id}/refresh`, {})
 
     const data = await response.json()
 
@@ -1326,9 +1317,7 @@ const confirmDelete = async () => {
   isDeleting.value = true
 
   try {
-    const response = await fetch(`/api/recharge-cards/${deletingCard.value.id}`, {
-      method: 'DELETE'
-    })
+    const response = await apiDelete(`/api/recharge-cards/${deletingCard.value.id}`)
 
     const data = await response.json()
 

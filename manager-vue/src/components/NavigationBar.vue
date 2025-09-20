@@ -134,6 +134,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '../utils/toast'
+import { apiGet } from '../utils/api'
 import { isUuidManagerEnabled, isActivationCodeManagerEnabled } from '../types/feature-flags'
 
 // Token类型定义
@@ -193,7 +194,7 @@ const handleClickOutside = (event: Event) => {
 // 加载Token数据
 const loadTokens = async () => {
   try {
-    const response = await fetch('/api/tokens?limit=10000')
+    const response = await apiGet('/api/tokens?limit=10000')
 
     if (response.ok) {
       const data = await response.json()

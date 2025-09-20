@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:worker": "vite build && echo 'Frontend built to ../manager-worker/dist'",
     "preview": "vite preview",
     "type-check": "vue-tsc --build",
     "format": "prettier --write src/"
@@ -18,8 +19,7 @@
     "@tabler/icons": "^3.34.1",
     "pinia": "^3.0.3",
     "vue": "^3.5.18",
-    "vue-router": "^4.5.1",
-    "yarn": "^1.22.22"
+    "vue-router": "^4.5.1"
   },
   "devDependencies": {
     "@tsconfig/node22": "^22.0.2",

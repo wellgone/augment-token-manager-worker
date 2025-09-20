@@ -20,7 +20,6 @@
 		"kv:create:prod": "wrangler kv:namespace create USERS_KV && wrangler kv:namespace create TOKENS_KV && wrangler kv:namespace create SESSIONS_KV"
 	},
 	"dependencies": {
-		"jose": "^5.9.6"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20241218.0",

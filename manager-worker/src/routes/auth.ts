@@ -8,6 +8,60 @@ import {
 } from '../utils/response.js';
 import { validateData, ValidationRules } from '../utils/validation.js';
 import { getCurrentUser, getCurrentSession } from '../middleware/auth.js';
+import { extractSessionToken } from '../utils/auth.js';
+
+/**
+ * Generate random bytes and encode as base64url (without padding)
+ */
+function base64URLEncode(data: Uint8Array): string {
+  return btoa(String.fromCharCode(...data))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+}
+
+/**
+ * Generate OAuth 2.0 PKCE parameters (Augment style)
+ */
+async function createAugmentOAuthState() {
+  // Generate code_verifier (32 random bytes, base64url encoded)
+  const verifierBytes = crypto.getRandomValues(new Uint8Array(32));
+  const codeVerifier = base64URLEncode(verifierBytes);
+
+  // Generate code_challenge = BASE64URL(SHA256(code_verifier))
+  const encoder = new TextEncoder();
+  const data = encoder.encode(codeVerifier);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  const codeChallenge = base64URLEncode(new Uint8Array(hash));
+
+  // Generate state (8 random bytes, base64url encoded)
+  const stateBytes = crypto.getRandomValues(new Uint8Array(8));
+  const state = base64URLEncode(stateBytes);
+
+  return {
+    codeVerifier,
+    codeChallenge,
+    state,
+    creationTime: Date.now()
+  };
+}
+
+/**
+ * Generate Augment authorization URL
+ */
+function generateAugmentAuthorizeURL(oauthState: {
+  codeChallenge: string;
+  state: string;
+}): string {
+  const authUrl = new URL('https://auth.augmentcode.com/authorize');
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('code_challenge', oauthState.codeChallenge);
+  authUrl.searchParams.set('client_id', 'v'); // Augment client ID
+  authUrl.searchParams.set('state', oauthState.state);
+  authUrl.searchParams.set('prompt', 'login');
+
+  return authUrl.toString();
+}
 
 /**
  * Login endpoint
@@ -36,7 +90,7 @@ export async function loginHandler(
     // Attempt login
     const result = await authService.login(body);
     
-    // Return success response with tokens
+    // Return success response with session token
     return createSuccessResponse({
       user: {
         id: result.user.id,
@@ -46,9 +100,8 @@ export async function loginHandler(
         createdAt: result.user.createdAt,
         updatedAt: result.user.updatedAt,
       },
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-      expiresIn: env.JWT_EXPIRES_IN,
+      sessionToken: result.sessionToken,
+      expiresIn: env.SESSION_EXPIRES_IN,
     }, 'Login successful');
     
   } catch (error) {
@@ -68,17 +121,18 @@ export async function logoutHandler(
   ctx: ExecutionContext
 ): Promise<Response> {
   try {
-    const session = getCurrentSession(request);
-    if (!session) {
-      return createErrorResponse('No active session', 400);
+    // Extract session token from Authorization header
+    const sessionToken = extractSessionToken(request);
+    if (!sessionToken) {
+      return createErrorResponse('No session token provided', 400);
     }
-    
+
     // Create auth service and logout
     const authService = new AuthService(env);
-    await authService.logout(session.sessionId);
-    
+    await authService.logout(sessionToken);
+
     return createSuccessResponse(null, 'Logout successful');
-    
+
   } catch (error) {
     console.error('Logout error:', error);
     return createErrorResponse('Logout failed', 500);
@@ -116,38 +170,14 @@ export async function profileHandler(
 }
 
 /**
- * Refresh token endpoint
+ * Refresh token endpoint (deprecated)
  */
 export async function refreshTokenHandler(
   request: AuthenticatedRequest,
   env: Env,
   ctx: ExecutionContext
 ): Promise<Response> {
-  try {
-    const body = await parseJsonBody<{ refreshToken: string }>(request);
-    
-    if (!body.refreshToken) {
-      return createErrorResponse('Refresh token is required', 400);
-    }
-    
-    // Create auth service
-    const authService = new AuthService(env);
-    
-    // Refresh tokens
-    const result = await authService.refreshToken(body.refreshToken);
-    
-    return createSuccessResponse({
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-      expiresIn: env.JWT_EXPIRES_IN,
-    }, 'Token refreshed successfully');
-    
-  } catch (error) {
-    console.error('Refresh token error:', error);
-    return createUnauthorizedResponse(
-      error instanceof Error ? error.message : 'Token refresh failed'
-    );
-  }
+  return createErrorResponse('Refresh token functionality has been removed. Please login again.', 410);
 }
 
 /**
@@ -259,6 +289,40 @@ export async function getSessionsHandler(
 }
 
 /**
+ * Generate Augment OAuth authorization URL with PKCE
+ */
+export async function generateUrlHandler(
+  request: AuthenticatedRequest,
+  env: Env,
+  ctx: ExecutionContext
+): Promise<Response> {
+  try {
+    const user = getCurrentUser(request);
+    if (!user) {
+      return createUnauthorizedResponse('Authentication required');
+    }
+
+    // Create OAuth state (Augment style)
+    const oauthState = await createAugmentOAuthState();
+
+    // Generate authorization URL
+    const authUrl = generateAugmentAuthorizeURL(oauthState);
+
+    return createSuccessResponse({
+      auth_url: authUrl,
+      code_verifier: oauthState.codeVerifier,
+      code_challenge: oauthState.codeChallenge,
+      state: oauthState.state,
+      creation_time: oauthState.creationTime,
+    }, '授权URL生成成功');
+
+  } catch (error) {
+    console.error('Generate URL error:', error);
+    return createErrorResponse('生成授权URL失败: ' + (error instanceof Error ? error.message : 'Unknown error'), 500);
+  }
+}
+
+/**
  * Revoke session (admin only)
  */
 export async function revokeSessionHandler(
@@ -271,19 +335,19 @@ export async function revokeSessionHandler(
     if (!user || user.role !== 'admin') {
       return createUnauthorizedResponse('Admin access required');
     }
-    
+
     const body = await parseJsonBody<{ sessionId: string }>(request);
-    
+
     if (!body.sessionId) {
       return createErrorResponse('Session ID is required', 400);
     }
-    
+
     // Create auth service and revoke session
     const authService = new AuthService(env);
     await authService.logout(body.sessionId);
-    
+
     return createSuccessResponse(null, 'Session revoked successfully');
-    
+
   } catch (error) {
     console.error('Revoke session error:', error);
     return createErrorResponse('Failed to revoke session', 500);

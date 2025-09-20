@@ -107,7 +107,16 @@ interface LoginForm {
 
 interface LoginResponse {
   data?: {
-    username: string
+    user: {
+      id: string
+      username: string
+      email?: string
+      role: string
+      createdAt: string
+      updatedAt: string
+    }
+    sessionToken: string
+    expiresIn: string
   }
   message?: string
   success: boolean
@@ -216,9 +225,9 @@ const handleLogin = async () => {
     const data: LoginResponse = await response.json()
     
     if (data.success && data.data) {
-      // 登录成功
-      localStorage.setItem('auth_token', 'logged_in')
-      localStorage.setItem('username', data.data.username)
+      // 登录成功，保存session token
+      localStorage.setItem('auth_token', data.data.sessionToken)
+      localStorage.setItem('username', data.data.user.username)
 
       // 保存或清除记住的登录信息
       saveRememberedCredentials()
@@ -243,34 +252,277 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
+/* 蓝色科技风背景 */
 .page-center {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background-color: #f8f9fa;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #1e3c72 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.page-center::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    radial-gradient(circle at 20% 80%, rgba(30, 60, 114, 0.4) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(42, 82, 152, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.2) 0%, transparent 50%);
+  animation: float 8s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-15px) rotate(1deg); }
 }
 
 .container-tight {
   max-width: 400px;
+  position: relative;
+  z-index: 1;
 }
 
+/* 蓝色科技风卡片 */
 .card-md {
   max-width: 400px;
   margin: 0 auto;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 20px;
+  box-shadow:
+    0 20px 40px rgba(30, 60, 114, 0.15),
+    0 8px 20px rgba(42, 82, 152, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: all 0.4s ease;
+  animation: slideUp 0.8s ease-out;
+}
+
+.card-md:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 25px 50px rgba(30, 60, 114, 0.2),
+    0 12px 25px rgba(42, 82, 152, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 蓝色科技风标题样式 */
+.h2.text-muted {
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 50%, #1d4ed8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
+  font-size: 2.2rem;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.text-muted {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(30, 60, 114, 0.5);
+}
+
+/* 蓝色科技风表单样式 */
+.form-control {
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  border-radius: 14px;
+  padding: 16px 20px;
+  height: 56px;
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 2px 8px rgba(30, 60, 114, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.form-control:focus {
+  border-color: #3b82f6;
+  box-shadow:
+    0 0 0 4px rgba(59, 130, 246, 0.15),
+    0 4px 12px rgba(30, 60, 114, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  background: rgba(255, 255, 255, 1);
+  transform: translateY(-1px);
+}
+
+.form-control::placeholder {
+  color: rgba(59, 130, 246, 0.6);
+  font-weight: 500;
+}
+
+/* 蓝色科技风输入组样式 */
+.input-group-text {
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  border-left: none;
+  border-radius: 0 14px 14px 0;
+  height: 56px;
+  background: rgba(255, 255, 255, 0.95);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow:
+    0 2px 8px rgba(30, 60, 114, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.input-group .form-control {
+  border-radius: 14px 0 0 14px;
+}
+
+.input-group:focus-within .input-group-text {
+  border-color: #3b82f6;
+  background: rgba(255, 255, 255, 1);
+  box-shadow:
+    0 0 0 4px rgba(59, 130, 246, 0.15),
+    0 4px 12px rgba(30, 60, 114, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  transform: translateY(-1px);
+}
+
+/* 蓝色科技风按钮样式 */
+.btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 50%, #1d4ed8 100%);
+  border: none;
+  border-radius: 14px;
+  padding: 16px 32px;
+  height: 56px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 4px 15px rgba(59, 130, 246, 0.3),
+    0 2px 8px rgba(30, 60, 114, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.6s ease;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 25px rgba(59, 130, 246, 0.4),
+    0 4px 15px rgba(30, 60, 114, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  transform: none;
+  box-shadow:
+    0 2px 8px rgba(59, 130, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .btn-link {
-  color: var(--tblr-muted);
+  color: #3b82f6;
   text-decoration: none;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 8px;
+  padding: 8px;
 }
 
 .btn-link:hover {
-  color: var(--tblr-primary);
+  color: #1e40af;
+  background: rgba(59, 130, 246, 0.1);
+  transform: scale(1.1);
+}
+
+.btn-link:focus {
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+/* 蓝色科技风复选框样式 */
+.form-check-input:checked {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.form-check-input:focus {
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+/* 蓝色科技风标签样式 */
+.form-label {
+  font-weight: 700;
+  color: #1e40af;
+  margin-bottom: 10px;
+  font-size: 14px;
+  letter-spacing: 0.3px;
+}
+
+.form-check-label {
+  color: #1e40af;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* 蓝色科技风错误状态 */
+.is-invalid {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+.invalid-feedback {
+  color: #ef4444;
+  font-weight: 600;
+  font-size: 13px;
 }
 
 .spinner-border-sm {
   width: 1rem;
   height: 1rem;
+}
+
+/* 响应式设计 */
+@media (max-width: 576px) {
+  .container-tight {
+    max-width: 90%;
+    padding: 0 15px;
+  }
+
+  .card-md {
+    margin: 20px 0;
+  }
+
+  .h2.text-muted {
+    font-size: 1.5rem;
+  }
 }
 </style>

@@ -1,11 +1,12 @@
 import { Env, User, UserSession, LoginRequest } from '../types/index.js';
 import {
-  generateAccessToken,
-  generateRefreshToken,
+  generateSessionToken,
   generateSessionId,
   hashPassword,
-  verifyPassword
-} from '../utils/jwt.js';
+  verifyPassword,
+  parseUserCredentials,
+  getSessionExpirationTime
+} from '../utils/auth.js';
 
 /**
  * Authentication service
@@ -18,115 +19,75 @@ export class AuthService {
    */
   async login(credentials: LoginRequest): Promise<{
     user: User;
-    accessToken: string;
-    refreshToken: string;
+    sessionToken: string;
     session: UserSession;
   }> {
-    // For demo purposes, we'll use a hardcoded admin user
-    // In production, this would query a database
     const { username, password } = credentials;
-    
-    // Check if it's the admin user
-    if (username === 'admin') {
-      const isValidPassword = await this.verifyAdminPassword(password);
-      if (!isValidPassword) {
-        throw new Error('Invalid credentials');
-      }
-      
-      // Create admin user object
-      const user: User = {
-        id: 'admin-user-id',
-        username: 'admin',
-        email: 'admin@example.com',
-        passwordHash: await hashPassword(this.env.ADMIN_PASSWORD),
-        role: 'admin',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        isActive: true,
-      };
-      
-      // Generate session
-      const sessionId = generateSessionId();
-      const session: UserSession = {
-        userId: user.id,
-        sessionId,
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
-        ipAddress: undefined, // Will be set by middleware
-        userAgent: undefined, // Will be set by middleware
-      };
-      
-      // Generate tokens
-      const accessToken = await generateAccessToken(
-        {
-          sub: user.id,
-          username: user.username,
-          role: user.role,
-          sessionId,
-        },
-        this.env.JWT_SECRET,
-        this.env.JWT_EXPIRES_IN
-      );
-      
-      const refreshToken = await generateRefreshToken(
-        {
-          sub: user.id,
-          sessionId,
-        },
-        this.env.JWT_SECRET,
-        this.env.REFRESH_TOKEN_EXPIRES_IN
-      );
-      
-      // Store session in KV
-      await this.env.SESSIONS_KV.put(
-        `session:${sessionId}`,
-        JSON.stringify(session),
-        { expirationTtl: 24 * 60 * 60 } // 24 hours
-      );
-      
-      // Store user in KV (for session validation)
-      await this.env.USERS_KV.put(
-        `user:${user.id}`,
-        JSON.stringify(user),
-        { expirationTtl: 24 * 60 * 60 } // 24 hours
-      );
-      
-      return {
-        user,
-        accessToken,
-        refreshToken,
-        session,
-      };
+
+    // Parse user credentials from environment variable
+    const userCredentials = parseUserCredentials(this.env.USER_CREDENTIALS || '');
+
+    // Check if user exists and password is correct
+    const storedPassword = userCredentials.get(username);
+    if (!storedPassword || storedPassword !== password) {
+      throw new Error('Invalid credentials');
     }
-    
-    // For other users, you would implement database lookup here
-    throw new Error('User not found');
+
+    // Create user object
+    const userId = `user-${username}`;
+    const user: User = {
+      id: userId,
+      username,
+      email: `${username}@example.com`,
+      passwordHash: await hashPassword(password),
+      role: username === 'admin' ? 'admin' : 'user',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isActive: true,
+    };
+
+    // Generate session
+    const sessionId = generateSessionId();
+    const sessionToken = generateSessionToken();
+    const expiresAt = getSessionExpirationTime(this.env.SESSION_EXPIRES_IN);
+
+    const session: UserSession = {
+      userId: user.id,
+      sessionId,
+      createdAt: new Date().toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      ipAddress: undefined, // Will be set by middleware
+      userAgent: undefined, // Will be set by middleware
+    };
+
+    // Store session in KV with session token as key
+    await this.env.SESSIONS_KV.put(
+      `session:${sessionToken}`,
+      JSON.stringify(session),
+      { expirationTtl: 24 * 60 * 60 } // 24 hours
+    );
+
+    // Store user in KV (for session validation)
+    await this.env.USERS_KV.put(
+      `user:${user.id}`,
+      JSON.stringify(user),
+      { expirationTtl: 24 * 60 * 60 } // 24 hours
+    );
+
+    return {
+      user,
+      sessionToken,
+      session,
+    };
   }
 
-  /**
-   * Verify admin password
-   */
-  private async verifyAdminPassword(password: string): Promise<boolean> {
-    return verifyPassword(password, await hashPassword(this.env.ADMIN_PASSWORD));
-  }
+
 
   /**
    * Logout user by invalidating session
    */
-  async logout(sessionId: string): Promise<void> {
-    await this.env.SESSIONS_KV.delete(`session:${sessionId}`);
-  }
-
-  /**
-   * Refresh access token using refresh token
-   */
-  async refreshToken(refreshToken: string): Promise<{
-    accessToken: string;
-    refreshToken: string;
-  }> {
-    // This would be implemented with proper refresh token validation
-    // For now, return error
-    throw new Error('Refresh token functionality not implemented');
+  async logout(sessionToken: string): Promise<void> {
+    await this.env.SESSIONS_KV.delete(`session:${sessionToken}`);
   }
 
   /**
@@ -138,34 +99,34 @@ export class AuthService {
   }
 
   /**
-   * Get session by ID
+   * Get session by token
    */
-  async getSessionById(sessionId: string): Promise<UserSession | null> {
-    const sessionData = await this.env.SESSIONS_KV.get(`session:${sessionId}`);
+  async getSessionByToken(sessionToken: string): Promise<UserSession | null> {
+    const sessionData = await this.env.SESSIONS_KV.get(`session:${sessionToken}`);
     return sessionData ? JSON.parse(sessionData) : null;
   }
 
   /**
    * Validate session and return user
    */
-  async validateSession(sessionId: string): Promise<User | null> {
-    const session = await this.getSessionById(sessionId);
+  async validateSession(sessionToken: string): Promise<User | null> {
+    const session = await this.getSessionByToken(sessionToken);
     if (!session) {
       return null;
     }
-    
+
     // Check if session is expired
     if (new Date(session.expiresAt) < new Date()) {
-      await this.logout(sessionId);
+      await this.logout(sessionToken);
       return null;
     }
-    
+
     // Get user
     const user = await this.getUserById(session.userId);
     if (!user || !user.isActive) {
       return null;
     }
-    
+
     return user;
   }
 

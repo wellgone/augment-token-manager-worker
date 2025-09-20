@@ -1,5 +1,5 @@
 import { Env } from '../types/index.js';
-import { createCorsResponse } from '@/utils/response';
+import { createCorsResponse } from '../utils/response.js';
 
 /**
  * CORS middleware for handling cross-origin requests

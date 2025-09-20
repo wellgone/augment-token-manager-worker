@@ -12,7 +12,8 @@ import {
   validateTokenHandler,
   changePasswordHandler,
   getSessionsHandler,
-  revokeSessionHandler
+  revokeSessionHandler,
+  generateUrlHandler
 } from './routes/auth.js';
 
 import {
@@ -43,6 +44,7 @@ const routes: Route[] = [
   { method: 'POST', path: '/api/auth/refresh', handler: refreshTokenHandler },
   { method: 'GET', path: '/api/auth/validate', handler: validateTokenHandler, requiresAuth: true },
   { method: 'POST', path: '/api/auth/change-password', handler: changePasswordHandler, requiresAuth: true },
+  { method: 'GET', path: '/api/auth/generate-url', handler: generateUrlHandler, requiresAuth: true },
 
   // Admin auth routes
   { method: 'GET', path: '/api/auth/sessions', handler: getSessionsHandler, requiresAuth: true, requiresAdmin: true },
@@ -123,14 +125,18 @@ export default {
       const url = new URL(request.url);
       const method = request.method as HttpMethod;
 
-      // Handle favicon requests
-      if (url.pathname.startsWith('/favicon')) {
-        return new Response(null, { status: 404 });
-      }
-
       // Handle static assets (frontend files)
       if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/health')) {
-        return env.ASSETS.fetch(request);
+        // Try to fetch the requested file
+        const assetResponse = await env.ASSETS.fetch(request);
+
+        // If file not found and it's not a static asset, serve index.html for SPA routing
+        if (assetResponse.status === 404 && !url.pathname.includes('.')) {
+          const indexRequest = new Request(new URL('/', request.url), request);
+          return env.ASSETS.fetch(indexRequest);
+        }
+
+        return assetResponse;
       }
 
       // Handle CORS preflight
@@ -161,7 +167,7 @@ export default {
       // Apply route-specific middlewares
       if (route.middlewares) {
         for (const middleware of route.middlewares) {
-          const middlewareResponse = await middleware(env)(authRequest, env, ctx);
+          const middlewareResponse = await middleware(authRequest, env, ctx);
           if (middlewareResponse) {
             return addCorsHeaders(middlewareResponse, env, request.headers.get('Origin'));
           }

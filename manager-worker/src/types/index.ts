@@ -12,14 +12,12 @@ export interface Env {
   DB?: D1Database;
 
   // Secrets
-  JWT_SECRET: string;
-  ADMIN_PASSWORD: string;
+  USER_CREDENTIALS: string;
   EMAIL_API_KEY?: string;
 
   // Environment variables
   ALLOWED_ORIGINS: string;
-  JWT_EXPIRES_IN: string;
-  REFRESH_TOKEN_EXPIRES_IN: string;
+  SESSION_EXPIRES_IN: string;
   RATE_LIMIT_LOGIN: string;
   RATE_LIMIT_API: string;
 }
@@ -45,21 +43,14 @@ export interface UserSession {
   userAgent?: string;
 }
 
-// JWT types
-export interface JWTPayload {
-  sub: string; // user id
+// Session types
+export interface SessionData {
+  userId: string;
   username: string;
   role: 'admin' | 'user';
-  iat: number;
-  exp: number;
   sessionId: string;
-}
-
-export interface RefreshTokenPayload {
-  sub: string;
-  sessionId: string;
-  iat: number;
-  exp: number;
+  createdAt: string;
+  expiresAt: string;
 }
 
 // Token management types (based on Go backend)
