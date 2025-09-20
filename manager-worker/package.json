@@ -1,0 +1,41 @@
+{
+	"name": "augment-token-manager-worker",
+	"version": "1.0.0",
+	"description": "Cloudflare Worker backend for Augment Token Manager",
+	"main": "src/index.ts",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"dev": "wrangler dev --assets=./dist",
+		"deploy": "wrangler deploy",
+		"build": "wrangler build",
+		"types": "wrangler types",
+		"typecheck": "wrangler types && tsc --noEmit",
+		"lint": "eslint src --ext .ts",
+		"format": "prettier --write src/**/*.ts"
+	},
+	"dependencies": {
+		"jose": "^5.9.6"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20241218.0",
+		"@typescript-eslint/eslint-plugin": "^8.18.2",
+		"@typescript-eslint/parser": "^8.18.2",
+		"eslint": "^9.17.0",
+		"prettier": "^3.4.2",
+		"typescript": "^5.7.2",
+		"wrangler": "^4.38.0"
+	},
+	"engines": {
+		"node": ">=18.0.0"
+	},
+	"keywords": [
+		"cloudflare-workers",
+		"jwt",
+		"token-manager",
+		"api",
+		"typescript"
+	],
+	"author": "KleinerSource",
+	"license": "MIT"
+}
