@@ -8,7 +8,6 @@ A comprehensive token management system with Vue.js frontend and Cloudflare Work
 augment-token-manager-worker/
 ├── manager-vue/         # Vue.js Frontend Application
 ├── manager-worker/      # Cloudflare Worker Backend API
-└── manager-go/          # Go Backend Reference Implementation
 ```
 
 ## Features
