@@ -223,8 +223,6 @@ export class TokenService {
       let isValid = false;
       let status = '';
 
-      console.log('response:', response);
-
       if (response.ok) {
         // 验证成功 - response.ok为true表示token有效
         isValid = true;
