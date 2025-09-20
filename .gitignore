@@ -1,0 +1,10 @@
+augment_token_manager_frontend
+.claude
+node_modules
+.env
+*.log
+dist
+build
+.DS_Store
+coverage
+.nyc_output
