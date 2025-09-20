@@ -7,12 +7,7 @@ import { createErrorResponse, createNotFoundResponse } from './utils/response.js
 import {
   loginHandler,
   logoutHandler,
-  profileHandler,
-  refreshTokenHandler,
   validateTokenHandler,
-  changePasswordHandler,
-  getSessionsHandler,
-  revokeSessionHandler,
   generateUrlHandler,
   validateResponseHandler
 } from './routes/auth.js';
@@ -41,16 +36,9 @@ const routes: Route[] = [
 
   // Auth routes (protected)
   { method: 'POST', path: '/api/auth/logout', handler: logoutHandler, requiresAuth: true },
-  { method: 'GET', path: '/api/auth/profile', handler: profileHandler, requiresAuth: true },
-  { method: 'POST', path: '/api/auth/refresh', handler: refreshTokenHandler },
   { method: 'GET', path: '/api/auth/validate', handler: validateTokenHandler, requiresAuth: true },
-  { method: 'POST', path: '/api/auth/change-password', handler: changePasswordHandler, requiresAuth: true },
   { method: 'GET', path: '/api/auth/generate-url', handler: generateUrlHandler, requiresAuth: true },
   { method: 'POST', path: '/api/auth/validate-response', handler: validateResponseHandler, requiresAuth: true },
-
-  // Admin auth routes
-  { method: 'GET', path: '/api/auth/sessions', handler: getSessionsHandler, requiresAuth: true, requiresAdmin: true },
-  { method: 'POST', path: '/api/auth/revoke-session', handler: revokeSessionHandler, requiresAuth: true, requiresAdmin: true },
 
   // Token management routes
   { method: 'GET', path: '/api/tokens', handler: getTokensHandler, requiresAuth: true },

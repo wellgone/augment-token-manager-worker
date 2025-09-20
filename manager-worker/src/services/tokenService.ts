@@ -30,7 +30,7 @@ export class TokenService {
       access_token: tokenData.access_token,
       portal_url: tokenData.portal_url,
       email_note: tokenData.email_note,
-      ban_status: '{}', // Default empty JSON
+      ban_status: JSON.stringify({ status: 'NORMAL', reason: 'Initial state', updated_at: now }), // New status format
       portal_info: '{}', // Default empty JSON
       created_at: now,
       updated_at: now,
@@ -238,8 +238,10 @@ export class TokenService {
         }
       }
 
-      // 更新ban_status，但保留原有的portal_info
-      const banStatus = isValid ? '{}' : JSON.stringify({ status: 'ACTIVE', reason: 'Token validation failed' });
+      // 更新ban_status，使用新的状态枚举
+      const banStatus = isValid
+        ? JSON.stringify({ status: 'NORMAL', reason: 'Token validation successful', updated_at: new Date().toISOString() })
+        : JSON.stringify({ status: 'INVALID', reason: 'Token validation failed', updated_at: new Date().toISOString() });
 
       const updatedToken: TokenRecord = {
         ...token,
@@ -293,13 +295,14 @@ export class TokenService {
       // 第二步：获取账户余额信息
       const ledgerInfo = await this.getLedgerSummary(customerInfo, tokenParam);
 
-      // 第三步：更新 portal_info
+      // 第三步：更新 portal_info 和状态
       const portalInfo = {
         credits_balance: this.parseCreditsBalance(ledgerInfo.credits_balance),
         is_active: ledgerInfo.credit_blocks.length > 0 ? ledgerInfo.credit_blocks[0].is_active : false,
         expiry_date: ledgerInfo.credit_blocks.length > 0 ? ledgerInfo.credit_blocks[0].expiry_date : '',
       };
 
+      // 刷新操作只更新portal_info，不修改ban_status
       const updatedToken: TokenRecord = {
         ...token,
         portal_info: JSON.stringify(portalInfo),

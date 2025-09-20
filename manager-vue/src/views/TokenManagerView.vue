@@ -92,8 +92,33 @@
           <div class="col-6 col-lg-3">
             <div
               class="card card-sm cursor-pointer"
-              :class="{ 'border-danger': activeFilter === '失效' }"
+              :class="{ 'border-warning': activeFilter === '失效' }"
               @click="toggleFilter('失效')"
+            >
+              <div class="card-body">
+                <div class="row align-items-center">
+                  <div class="col-auto">
+                    <span class="bg-warning text-dark avatar">
+                      <i class="bi bi-x-circle"></i>
+                    </span>
+                  </div>
+                  <div class="col">
+                    <div class="font-weight-medium">
+                      失效
+                    </div>
+                  </div>
+                  <div class="col-auto">
+                    <div class="h1 mb-0 text-warning">{{ statusStats.invalid }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-lg-3">
+            <div
+              class="card card-sm cursor-pointer"
+              :class="{ 'border-danger': activeFilter === '不可用' }"
+              @click="toggleFilter('不可用')"
             >
               <div class="card-body">
                 <div class="row align-items-center">
@@ -104,11 +129,11 @@
                   </div>
                   <div class="col">
                     <div class="font-weight-medium">
-                      失效
+                      不可用
                     </div>
                   </div>
                   <div class="col-auto">
-                    <div class="h1 mb-0 text-danger">{{ statusStats.expired }}</div>
+                    <div class="h1 mb-0 text-danger">{{ statusStats.banned + statusStats.exhausted + statusStats.expired }}</div>
                   </div>
                 </div>
               </div>
@@ -117,33 +142,8 @@
           <div class="col-6 col-lg-3">
             <div
               class="card card-sm cursor-pointer"
-              :class="{ 'border-warning': activeFilter === '耗尽' }"
-              @click="toggleFilter('耗尽')"
-            >
-              <div class="card-body">
-                <div class="row align-items-center">
-                  <div class="col-auto">
-                    <span class="bg-warning text-white avatar">
-                      <i class="bi bi-exclamation-triangle"></i>
-                    </span>
-                  </div>
-                  <div class="col">
-                    <div class="font-weight-medium">
-                      耗尽
-                    </div>
-                  </div>
-                  <div class="col-auto">
-                    <div class="h1 mb-0 text-warning">{{ statusStats.depleted }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-6 col-lg-3">
-            <div
-              class="card card-sm cursor-pointer"
-              :class="{ 'border-secondary': activeFilter === '未验证' }"
-              @click="toggleFilter('未验证')"
+              :class="{ 'border-secondary': activeFilter === '未知' }"
+              @click="toggleFilter('未知')"
             >
               <div class="card-body">
                 <div class="row align-items-center">
@@ -154,11 +154,11 @@
                   </div>
                   <div class="col">
                     <div class="font-weight-medium">
-                      未验证
+                      未知
                     </div>
                   </div>
                   <div class="col-auto">
-                    <div class="h1 mb-0 text-secondary">{{ statusStats.unverified }}</div>
+                    <div class="h1 mb-0 text-secondary">{{ statusStats.unknown }}</div>
                   </div>
                 </div>
               </div>
@@ -174,7 +174,7 @@
                 <div class="d-flex align-items-center mb-3">
                   <div class="flex-fill">
                     <div class="font-weight-medium">{{ token.email_note || '未设置备注' }}</div>
-                    <div class="text-muted small">{{ token.created_at }}</div>
+                    <div class="text-muted small">过期时间: {{ getExpiryDate(token) }}</div>
                   </div>
                   <div class="ms-auto">
                     <span
@@ -241,8 +241,8 @@
               <thead>
                 <tr>
                   <th>邮箱备注</th>
-                  <th>创建时间</th>
                   <th>过期时间</th>
+                  <th>剩余时长</th>
                   <th>剩余次数</th>
                   <th>状态</th>
                   <th class="w-1">操作</th>
@@ -251,7 +251,9 @@
               <tbody>
                 <tr v-for="token in tokens" :key="token.id">
                   <td class="text-muted">{{ token.email_note || '未设置备注' }}</td>
-                  <td class="text-muted">{{ token.created_at }}</td>
+                  <td :class="getDaysColorClass(token)">
+                    {{ getExpiryDate(token) }}
+                  </td>
                   <td :class="getDaysColorClass(token)">
                     {{ formatRemainingTime(token) }}
                   </td>
@@ -1300,9 +1302,11 @@ const activeFilter = ref<string | null>(null) // 当前激活的筛选器
 const statusStats = computed(() => {
   const stats = {
     normal: 0,
+    invalid: 0,
+    banned: 0,
     expired: 0,
-    depleted: 0,
-    unverified: 0
+    exhausted: 0,
+    unknown: 0
   }
 
   allTokens.value.forEach(token => {
@@ -1312,13 +1316,19 @@ const statusStats = computed(() => {
         stats.normal++
         break
       case '失效':
+        stats.invalid++
+        break
+      case '封禁':
+        stats.banned++
+        break
+      case '过期':
         stats.expired++
         break
-      case '耗尽':
-        stats.depleted++
+      case '燃尽':
+        stats.exhausted++
         break
-      case '未验证':
-        stats.unverified++
+      case '未知':
+        stats.unknown++
         break
     }
   })
@@ -1427,6 +1437,9 @@ const getFilteredTokens = () => {
 
   return allTokens.value.filter(token => {
     const status = getTokenStatus(token)
+    if (activeFilter.value === '不可用') {
+      return status === '封禁' || status === '燃尽' || status === '过期'
+    }
     return status === activeFilter.value
   })
 }
@@ -1524,6 +1537,31 @@ const formatRemainingTime = (token: Token): string => {
   }
 }
 
+// 获取过期时间显示
+const getExpiryDate = (token: Token): string => {
+  const portalInfo = parsePortalInfo(token.portal_info)
+  if (!portalInfo || !portalInfo.expiry_date) {
+    return '-'
+  }
+
+  try {
+    const expiryDate = new Date(portalInfo.expiry_date)
+    if (isNaN(expiryDate.getTime())) {
+      return '-'
+    }
+
+    return expiryDate.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch (e) {
+    return '-'
+  }
+}
+
 const calculateDaysUntilExpiry = (expiryDate: string): number => {
   if (!expiryDate) return 0
 
@@ -1549,36 +1587,76 @@ const getRemainingCredits = (token: Token): string => {
   return portalInfo.credits_balance.toString()
 }
 
-const getTokenStatus = (token: Token): '正常' | '失效' | '未验证' | '耗尽' => {
-  // 检查是否为空数据（未验证状态）
-  if ((!token.portal_info || token.portal_info === '{}') &&
-      (!token.ban_status || token.ban_status === '{}')) {
-    return '未验证'
-  }
-
-  // 检查剩余次数是否为0（耗尽状态）
+const getTokenStatus = (token: Token): '正常' | '失效' | '封禁' | '过期' | '燃尽' | '未知' => {
+  // 解析portal_info获取余额和过期时间
   const portalInfo = parsePortalInfo(token.portal_info)
+
+  // 优先级1: 过期状态（过期时间 < 当前时间）
+  if (portalInfo && portalInfo.expiry_date) {
+    const expiryDate = new Date(portalInfo.expiry_date)
+    if (!isNaN(expiryDate.getTime()) && expiryDate < new Date()) {
+      return '过期'
+    }
+  }
+
+  // 优先级2: 燃尽状态（余额为0）
   if (portalInfo && portalInfo.credits_balance === 0) {
-    return '耗尽'
+    return '燃尽'
   }
 
-  // 主要根据ban_status字段判断状态
+  // 优先级3-5: 根据ban_status判断
   if (token.ban_status) {
-    // ban_status为"{}"表示正常
-    if (token.ban_status === '{}') {
-      return '正常'
-    }
-    // ban_status为"ACTIVE"表示失效
-    if (token.ban_status === '"ACTIVE"') {
-      return '失效'
+    try {
+      const banStatusObj = JSON.parse(token.ban_status)
+      if (banStatusObj && banStatusObj.status) {
+        switch (banStatusObj.status) {
+          case 'NORMAL':
+            return '正常'
+          case 'INVALID':
+            return '失效'
+          case 'BANNED':
+            return '封禁'
+          case 'EXPIRED':
+            return '过期'
+          case 'EXHAUSTED':
+            return '燃尽'
+          default:
+            return '未知'
+        }
+      }
+    } catch (e) {
+      // 兼容旧格式
+      if (token.ban_status === '{}') {
+        return '正常'
+      }
+      if (token.ban_status === '"ACTIVE"') {
+        return '失效'
+      }
     }
   }
 
-  // 如果ban_status不明确，则根据portal_info判断
-  if (!portalInfo) return '失效'
+  // 如果状态为null或无法解析，返回未知
+  return '未知'
+}
 
-  const daysLeft = calculateDaysUntilExpiry(portalInfo.expiry_date)
-  return portalInfo.is_active && daysLeft > 0 ? '正常' : '失效'
+// 获取状态配色类
+const getStatusColorClass = (status: string): string => {
+  switch (status) {
+    case '正常':
+      return 'text-success'
+    case '失效':
+      return 'text-danger'
+    case '封禁':
+      return 'text-danger'
+    case '过期':
+      return 'text-warning'
+    case '燃尽':
+      return 'text-muted'
+    case '未知':
+      return 'text-secondary'
+    default:
+      return 'text-muted'
+  }
 }
 
 // 获取剩余时间的配色类
@@ -1610,11 +1688,15 @@ const getTokenStatusClass = (token: Token): string => {
     case '正常':
       return 'bg-success text-white'
     case '失效':
-      return 'bg-danger text-white'
-    case '未验证':
-      return 'bg-secondary text-white'
-    case '耗尽':
+      return 'bg-warning text-dark'  // 失效改为警告色
+    case '封禁':
+      return 'bg-danger text-white'   // 封禁保持红色
+    case '过期':
       return 'bg-warning text-dark'
+    case '燃尽':
+      return 'bg-warning text-dark'
+    case '未知':
+      return 'bg-secondary text-white'
     default:
       return 'bg-secondary text-white'
   }
@@ -1776,12 +1858,23 @@ const validateAllTokens = () => {
     return
   }
 
+  // 筛选出可以验证的Token（正常和未知状态）
+  const validatableTokens = tokens.value.filter(token => {
+    const status = getTokenStatus(token)
+    return status === '正常' || status === '未知'
+  })
+
+  if (validatableTokens.length === 0) {
+    toast.info('没有可验证的Token（只有正常和未知状态的Token可以验证）')
+    return
+  }
+
   // 重置验证结果
   batchValidateResults.value = {
     valid: 0,
     invalid: 0,
     failed: 0,
-    total: tokens.value.length
+    total: validatableTokens.length
   }
 
   showBatchValidateModal.value = true
@@ -1794,11 +1887,19 @@ const showBatchRefreshConfirm = () => {
     return
   }
 
+  // 筛选出有portal_url的Token（只有这些Token可以刷新）
+  const refreshableTokens = tokens.value.filter(token => token.portal_url && token.portal_url.trim() !== '')
+
+  if (refreshableTokens.length === 0) {
+    toast.info('没有可刷新的Token（需要有portal_url）')
+    return
+  }
+
   // 重置刷新结果
   batchRefreshResults.value = {
     success: 0,
     failed: 0,
-    total: 0
+    total: refreshableTokens.length
   }
 
   showBatchRefreshModal.value = true
@@ -2389,6 +2490,14 @@ const deleteToken = (token: Token) => {
 
 // Token验证相关方法
 const showValidateModal = (token: Token) => {
+  const currentStatus = getTokenStatus(token)
+
+  // 只有正常和未知状态的Token才能弹出验证模态框
+  if (currentStatus !== '正常' && currentStatus !== '未知') {
+    toast.info(`Token状态为"${currentStatus}"，无需验证`)
+    return
+  }
+
   validatingToken.value = token
   showValidateConfirmModal.value = true
 }
@@ -2405,6 +2514,14 @@ const confirmValidateToken = async () => {
   }
 
   const tokenToValidate = validatingToken.value
+
+  // 检查Token状态，只有正常状态的Token才能验证
+  const currentStatus = getTokenStatus(tokenToValidate)
+  if (currentStatus !== '正常') {
+    toast.error(`Token状态为"${currentStatus}"，无法进行验证`)
+    cancelValidateToken()
+    return
+  }
 
   // 立即关闭模态框，但保持validatingToken用于显示验证状态
   showValidateConfirmModal.value = false
@@ -2453,17 +2570,23 @@ const closeBatchValidateModal = () => {
 const confirmBatchValidate = async () => {
   isBatchValidating.value = true
 
+  // 筛选出可以验证的Token（正常和未知状态）
+  const validatableTokens = tokens.value.filter(token => {
+    const status = getTokenStatus(token)
+    return status === '正常' || status === '未知'
+  })
+
   // 重置结果
   batchValidateResults.value = {
     valid: 0,
     invalid: 0,
     failed: 0,
-    total: tokens.value.length
+    total: validatableTokens.length
   }
 
   // 逐个验证Token，添加延迟
-  for (let i = 0; i < tokens.value.length; i++) {
-    const token = tokens.value[i]
+  for (let i = 0; i < validatableTokens.length; i++) {
+    const token = validatableTokens[i]
 
     try {
       const response = await apiPost(`/api/tokens/${token.id}/validate`, {})
@@ -2492,7 +2615,7 @@ const confirmBatchValidate = async () => {
     }
 
     // 添加延迟，避免服务器压力（每个请求间隔500ms）
-    if (i < tokens.value.length - 1) {
+    if (i < validatableTokens.length - 1) {
       await new Promise(resolve => setTimeout(resolve, 500))
     }
   }
@@ -2525,16 +2648,19 @@ const closeBatchRefreshModal = () => {
 const confirmBatchRefresh = async () => {
   isBatchRefreshing.value = true
 
+  // 筛选出有portal_url的Token（只有这些Token可以刷新）
+  const refreshableTokens = tokens.value.filter(token => token.portal_url && token.portal_url.trim() !== '')
+
   // 重置结果
   batchRefreshResults.value = {
     success: 0,
     failed: 0,
-    total: tokens.value.length
+    total: refreshableTokens.length
   }
 
   // 逐个刷新Token，添加延迟
-  for (let i = 0; i < tokens.value.length; i++) {
-    const token = tokens.value[i]
+  for (let i = 0; i < refreshableTokens.length; i++) {
+    const token = refreshableTokens[i]
 
     try {
       const response = await apiPost(`/api/tokens/${token.id}/refresh`, {})
@@ -2559,7 +2685,7 @@ const confirmBatchRefresh = async () => {
     }
 
     // 添加延迟，避免服务器压力
-    if (i < tokens.value.length - 1) {
+    if (i < refreshableTokens.length - 1) {
       await new Promise(resolve => setTimeout(resolve, 500))
     }
   }

@@ -27,28 +27,7 @@
             </span>
             <span class="nav-link-title">Token 管理</span>
           </router-link>
-          <router-link
-            v-if="isActivationCodeManagerEnabled()"
-            to="/activation"
-            class="nav-link px-3"
-            active-class="active"
-          >
-            <span class="nav-link-icon me-2">
-              <i class="bi bi-credit-card" style="font-size: 1.25rem;"></i>
-            </span>
-            <span class="nav-link-title">激活码管理</span>
-          </router-link>
-          <router-link
-            v-if="isUuidManagerEnabled()"
-            to="/uuid"
-            class="nav-link px-3"
-            active-class="active"
-          >
-            <span class="nav-link-icon me-2">
-              <i class="bi bi-fingerprint" style="font-size: 1.25rem;"></i>
-            </span>
-            <span class="nav-link-title">UUID 管理</span>
-          </router-link>
+
         </div>
 
         <!-- 到期提醒铃铛 -->
@@ -135,7 +114,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from '../utils/toast'
 import { apiGet } from '../utils/api'
-import { isUuidManagerEnabled, isActivationCodeManagerEnabled } from '../types/feature-flags'
+
 
 // Token类型定义
 interface Token {
@@ -263,7 +242,15 @@ const expiringTokens = computed(() => {
   const result = tokens.value.filter(token => {
     try {
       // 检查Token状态是否正常
-      if (token.ban_status === '"ACTIVE"') return false
+      try {
+        const banStatusObj = JSON.parse(token.ban_status)
+        if (banStatusObj && banStatusObj.status && banStatusObj.status !== 'NORMAL') {
+          return false
+        }
+      } catch (e) {
+        // 兼容旧格式
+        if (token.ban_status === '"ACTIVE"') return false
+      }
 
       // 解析portal_info获取到期时间
       const portalInfo = JSON.parse(token.portal_info)

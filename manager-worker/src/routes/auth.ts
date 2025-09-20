@@ -266,46 +266,7 @@ export async function logoutHandler(
   }
 }
 
-/**
- * Get current user profile
- */
-export async function profileHandler(
-  request: AuthenticatedRequest,
-  env: Env,
-  ctx: ExecutionContext
-): Promise<Response> {
-  try {
-    const user = getCurrentUser(request);
-    if (!user) {
-      return createUnauthorizedResponse('Authentication required');
-    }
-    
-    return createSuccessResponse({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      isActive: user.isActive,
-    });
-    
-  } catch (error) {
-    console.error('Profile error:', error);
-    return createErrorResponse('Failed to get profile', 500);
-  }
-}
 
-/**
- * Refresh token endpoint (deprecated)
- */
-export async function refreshTokenHandler(
-  request: AuthenticatedRequest,
-  env: Env,
-  ctx: ExecutionContext
-): Promise<Response> {
-  return createErrorResponse('Refresh token functionality has been removed. Please login again.', 410);
-}
 
 /**
  * Validate token endpoint (check if current token is valid)
@@ -332,9 +293,9 @@ export async function validateTokenHandler(
       },
       session: {
         sessionId: session.sessionId,
-        expiresAt: session.expiresAt,
+        // 移除expiresAt，前端未使用
       },
-    }, 'Token is valid');
+    }); // 移除message，前端未使用
     
   } catch (error) {
     console.error('Validate token error:', error);
@@ -342,78 +303,7 @@ export async function validateTokenHandler(
   }
 }
 
-/**
- * Change password endpoint
- */
-export async function changePasswordHandler(
-  request: AuthenticatedRequest,
-  env: Env,
-  ctx: ExecutionContext
-): Promise<Response> {
-  try {
-    const user = getCurrentUser(request);
-    if (!user) {
-      return createUnauthorizedResponse('Authentication required');
-    }
-    
-    const body = await parseJsonBody<{
-      currentPassword: string;
-      newPassword: string;
-    }>(request);
-    
-    if (!body.currentPassword || !body.newPassword) {
-      return createErrorResponse('Current password and new password are required', 400);
-    }
-    
-    if (body.newPassword.length < 8) {
-      return createErrorResponse('New password must be at least 8 characters long', 400);
-    }
-    
-    // Create auth service
-    const authService = new AuthService(env);
-    
-    // For admin user, verify against ADMIN_PASSWORD
-    if (user.username === 'admin') {
-      // In a real implementation, you'd verify the current password
-      // For now, just update the password
-      await authService.updateUser(user.id, {
-        passwordHash: body.newPassword, // Will be hashed in updateUser
-      });
-      
-      return createSuccessResponse(null, 'Password changed successfully');
-    }
-    
-    return createErrorResponse('Password change not supported for this user', 400);
-    
-  } catch (error) {
-    console.error('Change password error:', error);
-    return createErrorResponse('Password change failed', 500);
-  }
-}
 
-/**
- * Get user sessions (admin only)
- */
-export async function getSessionsHandler(
-  request: AuthenticatedRequest,
-  env: Env,
-  ctx: ExecutionContext
-): Promise<Response> {
-  try {
-    const user = getCurrentUser(request);
-    if (!user || user.role !== 'admin') {
-      return createUnauthorizedResponse('Admin access required');
-    }
-    
-    // In a real implementation, you'd list all active sessions
-    // For now, return empty array
-    return createSuccessResponse([], 'Sessions retrieved successfully');
-    
-  } catch (error) {
-    console.error('Get sessions error:', error);
-    return createErrorResponse('Failed to get sessions', 500);
-  }
-}
 
 /**
  * Generate Augment OAuth authorization URL with PKCE
@@ -441,7 +331,7 @@ export async function generateUrlHandler(
       code_challenge: oauthState.codeChallenge,
       state: oauthState.state,
       creation_time: oauthState.creationTime,
-    }, '授权URL生成成功');
+    }, '授权URL生成成功'); // 保留message，前端使用
 
   } catch (error) {
     console.error('Generate URL error:', error);
@@ -500,7 +390,7 @@ export async function validateResponseHandler(
       access_token: tokenResponse.access_token,
       email: tokenResponse.email,
       portal_url: tokenResponse.portal_url,
-    }, '授权响应验证成功');
+    }, '授权响应验证成功'); // 保留message，前端使用
 
   } catch (error) {
     console.error('Validate response error:', error);
@@ -508,34 +398,4 @@ export async function validateResponseHandler(
   }
 }
 
-/**
- * Revoke session (admin only)
- */
-export async function revokeSessionHandler(
-  request: AuthenticatedRequest,
-  env: Env,
-  ctx: ExecutionContext
-): Promise<Response> {
-  try {
-    const user = getCurrentUser(request);
-    if (!user || user.role !== 'admin') {
-      return createUnauthorizedResponse('Admin access required');
-    }
 
-    const body = await parseJsonBody<{ sessionId: string }>(request);
-
-    if (!body.sessionId) {
-      return createErrorResponse('Session ID is required', 400);
-    }
-
-    // Create auth service and revoke session
-    const authService = new AuthService(env);
-    await authService.logout(body.sessionId);
-
-    return createSuccessResponse(null, 'Session revoked successfully');
-
-  } catch (error) {
-    console.error('Revoke session error:', error);
-    return createErrorResponse('Failed to revoke session', 500);
-  }
-}

@@ -43,26 +43,7 @@ const copyIconsPlugin = () => {
 }
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
-  // 加载环境变量
-  const env = loadEnv(mode, process.cwd(), '')
-
-  // 功能模块配置
-  // 开发环境：默认全部启用
-  // 生产环境：默认全部禁用
-  const isDevelopment = mode === 'development'
-
-  const featureFlags = {
-    VITE_ENABLE_EMAIL_SUBSCRIPTION: env.VITE_ENABLE_EMAIL_SUBSCRIPTION === 'true' || (isDevelopment && env.VITE_ENABLE_EMAIL_SUBSCRIPTION !== 'false'),
-    VITE_ENABLE_UUID_MANAGER: env.VITE_ENABLE_UUID_MANAGER === 'true' || (isDevelopment && env.VITE_ENABLE_UUID_MANAGER !== 'false'),
-    VITE_ENABLE_ACTIVATION_CODE_MANAGER: env.VITE_ENABLE_ACTIVATION_CODE_MANAGER === 'true' || (isDevelopment && env.VITE_ENABLE_ACTIVATION_CODE_MANAGER !== 'false')
-  }
-
-  console.log(`🚀 Feature Flags Configuration (${mode} mode):`)
-  console.log('  📧 Email Subscription:', featureFlags.VITE_ENABLE_EMAIL_SUBSCRIPTION ? '✅ Enabled' : '❌ Disabled')
-  console.log('  🔑 UUID Manager:', featureFlags.VITE_ENABLE_UUID_MANAGER ? '✅ Enabled' : '❌ Disabled')
-  console.log('  🎫 Activation Code Manager:', featureFlags.VITE_ENABLE_ACTIVATION_CODE_MANAGER ? '✅ Enabled' : '❌ Disabled')
-
+export default defineConfig(() => {
   return {
     plugins: [
       vue(),
@@ -77,10 +58,6 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: '../manager-worker/dist',
       emptyOutDir: true,
-    },
-    define: {
-      // 将功能标志注入到应用中
-      __FEATURE_FLAGS__: JSON.stringify(featureFlags)
     },
     server: {
       host: '0.0.0.0', // 允许外部IP访问

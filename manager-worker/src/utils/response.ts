@@ -12,7 +12,7 @@ export function createSuccessResponse<T>(
     success: true,
     data,
     message,
-    timestamp: new Date().toISOString(),
+    // 移除timestamp，前端未使用
   };
 
   const responseBody = JSON.stringify(response);
@@ -36,7 +36,7 @@ export function createErrorResponse(
   const response: ApiResponse = {
     success: false,
     error,
-    timestamp: new Date().toISOString(),
+    // 移除timestamp，前端未使用
   };
 
   if (code) {
@@ -67,7 +67,7 @@ export function createPaginatedResponse<T>(
     success: true,
     data,
     message,
-    timestamp: new Date().toISOString(),
+    // 移除timestamp，前端未使用
     pagination: {
       page,
       limit,

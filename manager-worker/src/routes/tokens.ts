@@ -49,8 +49,8 @@ export async function getTokensHandler(
         paginatedTokens,
         page,
         limit,
-        tokens.length,
-        'Tokens retrieved successfully'
+        tokens.length
+        // 移除message，前端未使用
       );
     }
     
@@ -61,8 +61,8 @@ export async function getTokensHandler(
       result.tokens,
       result.page,
       result.limit,
-      result.total,
-      'Tokens retrieved successfully'
+      result.total
+      // 移除message，前端未使用
     );
     
   } catch (error) {
@@ -105,7 +105,7 @@ export async function getTokenByIdHandler(
       return createErrorResponse('Access denied', 403);
     }
     
-    return createSuccessResponse(token, 'Token retrieved successfully');
+    return createSuccessResponse(token); // 移除message，前端未使用
     
   } catch (error) {
     console.error('Get token by ID error:', error);
@@ -147,7 +147,7 @@ export async function createTokenHandler(
     const tokenService = new TokenService(env);
     const token = await tokenService.createToken(body, user.id);
     
-    return createSuccessResponse(token, 'Token created successfully', 201);
+    return createSuccessResponse(token, 'Token created successfully', 201); // 保留message，前端使用
     
   } catch (error) {
     console.error('Create token error:', error);
@@ -197,7 +197,7 @@ export async function updateTokenHandler(
       return createNotFoundResponse('Token not found');
     }
     
-    return createSuccessResponse(updatedToken, 'Token updated successfully');
+    return createSuccessResponse(updatedToken, 'Token updated successfully'); // 保留message，前端使用
     
   } catch (error) {
     console.error('Update token error:', error);
@@ -245,7 +245,7 @@ export async function deleteTokenHandler(
       return createNotFoundResponse('Token not found');
     }
     
-    return createSuccessResponse(null, 'Token deleted successfully');
+    return createSuccessResponse(null, 'Token deleted successfully'); // 保留message，前端使用
     
   } catch (error) {
     console.error('Delete token error:', error);
@@ -391,7 +391,7 @@ export async function refreshTokenHandler(
       return createNotFoundResponse('Token not found');
     }
     
-    return createSuccessResponse(refreshedToken, 'Token information refreshed');
+    return createSuccessResponse(refreshedToken, 'Token information refreshed'); // 保留message，前端使用
     
   } catch (error) {
     console.error('Refresh token error:', error);
@@ -416,7 +416,7 @@ export async function getTokenStatsHandler(
     const tokenService = new TokenService(env);
     const stats = await tokenService.getTokenStats();
     
-    return createSuccessResponse(stats, 'Token statistics retrieved');
+    return createSuccessResponse(stats); // 移除message，前端未使用
     
   } catch (error) {
     console.error('Get token stats error:', error);

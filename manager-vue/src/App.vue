@@ -1,14 +1,8 @@
 <script setup lang="ts">
 import { RouterView, useRoute } from 'vue-router'
-import { computed, defineAsyncComponent } from 'vue'
+import { computed } from 'vue'
 import NavigationBar from './components/NavigationBar.vue'
 import ToastNotification from './components/ToastNotification.vue'
-import { isEmailSubscriptionEnabled } from './types/feature-flags'
-
-// 条件导入EmailSubscription组件
-const EmailSubscription = isEmailSubscriptionEnabled()
-  ? defineAsyncComponent(() => import('./components/EmailSubscription.vue'))
-  : null
 
 const route = useRoute()
 
@@ -50,12 +44,6 @@ const isLoginPage = computed(() => route.path === '/login')
 
   <!-- 全局提示组件 -->
   <ToastNotification />
-
-  <!-- 邮件订阅悬浮窗 -->
-  <component
-    v-if="!isLoginPage && isEmailSubscriptionEnabled() && EmailSubscription"
-    :is="EmailSubscription"
-  />
 </template>
 
 <style scoped>

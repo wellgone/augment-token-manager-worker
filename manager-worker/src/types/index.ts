@@ -123,7 +123,7 @@ export interface ApiResponse<T = any> {
   data?: T;
   error?: string;
   message?: string;
-  timestamp: string;
+  // 移除timestamp字段，前端未使用
 }
 
 export interface PaginatedResponse<T> extends ApiResponse<T[]> {
