@@ -3375,46 +3375,6 @@ const getVerificationCode = async (isAutoRefresh = false) => {
     console.error('验证码获取失败:', error)
     if (!isAutoRefresh) {
 
-// 通用复制方法：优先使用 Clipboard API，降级使用 execCommand
-const copyTextWithFallback = async (text: string, successMsg: string) => {
-  const value = (text || '').trim()
-  if (!value) {
-    toast.error('要复制的内容为空')
-    return false
-  }
-  try {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(value)
-    } else {
-      const textarea = document.createElement('textarea')
-      textarea.value = value
-      textarea.style.position = 'fixed'
-      textarea.style.opacity = '0'
-      textarea.style.left = '-9999px'
-      document.body.appendChild(textarea)
-      textarea.focus()
-      textarea.select()
-      const ok = document.execCommand('copy')
-      document.body.removeChild(textarea)
-      if (!ok) throw new Error('execCommand copy failed')
-    }
-    toast.success(successMsg)
-    return true
-  } catch (err) {
-    console.error('复制失败:', err)
-    toast.error('复制失败')
-    return false
-  }
-}
-
-const copyTenantUrlFromRow = async (token: Token) => {
-  await copyTextWithFallback(token.tenant_url, 'Tenant URL 已复制到剪贴板')
-}
-
-const copyAccessTokenFromRow = async (token: Token) => {
-  await copyTextWithFallback(token.access_token, 'Token 已复制到剪贴板')
-}
-
       toast.error('网络错误，请重试')
     }
     return false
@@ -3462,6 +3422,7 @@ const startVerificationRefresh = () => {
     // 简化逻辑：固定10秒间隔，只判断是否相同，相同时不弹窗提示
     if (result === false) {
       console.log('验证码未更新或获取失败，10秒后重试')
+
     } else {
       console.log('验证码获取成功')
     }
@@ -3516,6 +3477,40 @@ const closeInvalidTokenActionModal = () => {
   showInvalidTokenActionModal.value = false
   selectedInvalidToken.value = null
 }
+
+// 通用复制方法：优先使用 Clipboard API，降级使用 execCommand
+const copyTextWithFallback = async (text: string, successMsg: string) => {
+  const value = (text || '').trim()
+  if (!value) { toast.error('要复制的内容为空'); return false }
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(value)
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = value
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      textarea.style.left = '-9999px'
+      document.body.appendChild(textarea)
+      textarea.focus(); textarea.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      if (!ok) throw new Error('execCommand copy failed')
+    }
+    toast.success(successMsg); return true
+  } catch (err) {
+    console.error('复制失败:', err); toast.error('复制失败'); return false
+  }
+}
+
+const copyTenantUrlFromRow = async (token: Token) => {
+  await copyTextWithFallback(token.tenant_url, 'Tenant URL 已复制到剪贴板')
+}
+
+const copyAccessTokenFromRow = async (token: Token) => {
+  await copyTextWithFallback(token.access_token, 'Token 已复制到剪贴板')
+}
+
 
 const validateInvalidToken = () => {
   if (selectedInvalidToken.value) {
