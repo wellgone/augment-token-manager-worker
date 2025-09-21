@@ -695,12 +695,11 @@
                 <label class="form-label">Portal URL</label>
                 <input
                   type="text"
-                  :value="reactivatingToken?.portal_url || ''"
-                  class="form-control bg-info-lt"
-                  placeholder="使用原Token的Portal URL"
-                  readonly
+                  v-model="tokenData.portal_url"
+                  class="form-control"
+                  placeholder="请输入 Portal URL（可编辑）"
                 >
-                <div class="form-hint">重新激活模式下将使用原Token的Portal URL</div>
+                <div class="form-hint">重新激活模式下可编辑此 Portal URL；默认填入原 Token 的 Portal URL</div>
               </div>
             </div>
 
@@ -735,6 +734,16 @@
                       readonly
                     ></textarea>
                   </div>
+                  <div class="mb-3">
+                    <label class="form-label">Portal URL（可选）</label>
+                    <input
+                      type="url"
+                      v-model="tokenData.portal_url"
+                      class="form-control"
+                      placeholder="请输入 Portal URL（可选）"
+                    >
+                  </div>
+
                   <div class="mb-3">
                     <label class="form-label">邮箱备注（可选）</label>
                     <input
@@ -2187,9 +2196,7 @@ const saveToken = async () => {
       tenant_url: tokenData.value.tenant_url,
       access_token: tokenData.value.access_token,
       email: tokenData.value.email,
-      portal_url: isReactivateMode.value && reactivatingToken.value
-        ? reactivatingToken.value.portal_url
-        : tokenData.value.portal_url,
+      portal_url: tokenData.value.portal_url,
       email_note: emailNote.value
     }
 
