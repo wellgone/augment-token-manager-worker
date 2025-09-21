@@ -228,7 +228,8 @@
                     :disabled="!token.tenant_url"
                     title="复制 Tenant URL"
                   >
-                    <i class="bi bi-clipboard"></i>
+                    <i class="bi bi-clipboard me-1"></i>
+                    Tenant
                   </button>
                   <button
                     @click="copyAccessTokenFromRow(token)"
@@ -236,7 +237,8 @@
                     :disabled="!token.access_token"
                     title="复制 Token"
                   >
-                    <i class="bi bi-clipboard"></i>
+                    <i class="bi bi-clipboard me-1"></i>
+                    Token
                   </button>
 
                   <button @click="showEditTokenModal(token)" class="btn btn-warning">
@@ -306,6 +308,13 @@
                         ></i>
                         {{ isRefreshing && refreshingToken?.id === token.id ? '刷新中...' : '刷新' }}
                       </button>
+                      <button @click="copyTenantUrlFromRow(token)" class="btn btn-sm btn-outline-secondary" :disabled="!token.tenant_url" title="复制 Tenant URL">
+                        <i class="bi bi-clipboard me-1"></i>Tenant
+                      </button>
+                      <button @click="copyAccessTokenFromRow(token)" class="btn btn-sm btn-outline-secondary" :disabled="!token.access_token" title="复制 Token">
+                        <i class="bi bi-clipboard me-1"></i>Token
+                      </button>
+
                       <button @click="showEditTokenModal(token)" class="btn btn-sm btn-warning">
                         <i class="bi bi-pencil-fill me-1"></i>
                         编辑
@@ -314,6 +323,7 @@
                         <i class="bi bi-trash-fill me-1"></i>
                         删除
                       </button>
+
                     </div>
                   </td>
                 </tr>
