@@ -706,7 +706,7 @@
 
             <!-- 第三步：保存Token -->
             <div v-if="getTokenStep === 3">
-              <h6 class="mb-3">第三步：{{ isReactivateMode ? '更新Token' : '保存Token' }}</h6>
+              <h6 class="mb-3">第三步：{{ isReactivateMode ? '更新/保存Token' : '保存Token' }}</h6>
               <div v-if="tokenData.tenant_url">
                 <div class="alert alert-success">
                   <h6>{{ isReactivateMode ? 'Token重新激活成功！' : 'Token获取成功！' }}</h6>
@@ -714,6 +714,8 @@
                     将覆盖原Token记录：{{ reactivatingToken?.id }}
                   </div>
                 </div>
+                <div v-if="isReactivateMode" class="form-hint mb-2">提示：若不存在原记录，将保存为新记录</div>
+
                 <form @submit.prevent="saveToken">
                   <div class="mb-3">
                     <label class="form-label">Tenant URL</label>
@@ -827,7 +829,7 @@
                   :class="['bi', 'me-1',
                     isSavingToken ? 'bi-arrow-clockwise refresh-spin' : 'bi-floppy']"
                 ></i>
-                {{ isSavingToken ? (isReactivateMode ? '更新中...' : '保存中...') : (isReactivateMode ? '更新Token' : '保存Token') }}
+                {{ isSavingToken ? (isReactivateMode ? '更新/保存中...' : '保存中...') : (isReactivateMode ? '更新/保存Token' : '保存Token') }}
               </button>
             </div>
           </div>
