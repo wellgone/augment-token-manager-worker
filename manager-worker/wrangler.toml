@@ -13,15 +13,15 @@ binding = "ASSETS"
 
 [vars]
 # 用户凭据，格式: 用户名:密码 (User credentials, format: username:password)
-USER_CREDENTIALS = "admin:admin123"
-
+USER_CREDENTIALS = "well:wellgone"
+#lwg-lawyer.com welldone.ggff.net well.edu.kg wellgone.cn
 # CloudMail邮箱服务配置 (CloudMail email service configuration) - 可选
 # 可用的邮箱域名列表 (Available email domains)
-EMAIL_DOMAINS = ["your-domain1.com","your-domain2.com","your-domain3.com"]
+EMAIL_DOMAINS = ["lwg-lawyer.com","welldone.ggff.net","well.edu.kg","ellgone.cn"]
 # 您的CloudMail部署基础URL (Your CloudMail deployment base URL)
-EMAIL_API_BASE_URL = ""
+EMAIL_API_BASE_URL = "https://mail.wellgone.cn/"
 # CloudMail管理员令牌 (CloudMail admin token)
-EMAIL_API_TOKEN = ""
+EMAIL_API_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInRva2VuIjoiY2VmNTgwMGEtNTc0Ni00Yjc5LWFmMWYtNDU0MjQwNjQ1Y2U1IiwiaWF0IjoxNzU3NDIxOTc3fQ.R9_Kv6SyWdgjWn4OTSK3ACXhQSxcv2B38xk6jFVnv7Q"
 
 # KV存储命名空间配置 (KV Storage Namespaces)
 
