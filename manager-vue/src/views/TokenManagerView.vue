@@ -3374,34 +3374,45 @@ const getVerificationCode = async (isAutoRefresh = false) => {
   } catch (error) {
     console.error('验证码获取失败:', error)
     if (!isAutoRefresh) {
-const copyTenantUrlFromRow = async (token: Token) => {
+
+// 通用复制方法：优先使用 Clipboard API，降级使用 execCommand
+const copyTextWithFallback = async (text: string, successMsg: string) => {
+  const value = (text || '').trim()
+  if (!value) {
+    toast.error('要复制的内容为空')
+    return false
+  }
   try {
-    const value = (token.tenant_url || '').trim()
-    if (!value) {
-      toast.error('无 Tenant URL 可复制')
-      return
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(value)
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = value
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      textarea.style.left = '-9999px'
+      document.body.appendChild(textarea)
+      textarea.focus()
+      textarea.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      if (!ok) throw new Error('execCommand copy failed')
     }
-    await navigator.clipboard.writeText(value)
-    toast.success('Tenant URL 已复制到剪贴板')
+    toast.success(successMsg)
+    return true
   } catch (err) {
     console.error('复制失败:', err)
     toast.error('复制失败')
+    return false
   }
 }
 
+const copyTenantUrlFromRow = async (token: Token) => {
+  await copyTextWithFallback(token.tenant_url, 'Tenant URL 已复制到剪贴板')
+}
+
 const copyAccessTokenFromRow = async (token: Token) => {
-  try {
-    const value = (token.access_token || '').trim()
-    if (!value) {
-      toast.error('无 Token 可复制')
-      return
-    }
-    await navigator.clipboard.writeText(value)
-    toast.success('Token 已复制到剪贴板')
-  } catch (err) {
-    console.error('复制失败:', err)
-    toast.error('复制失败')
-  }
+  await copyTextWithFallback(token.access_token, 'Token 已复制到剪贴板')
 }
 
       toast.error('网络错误，请重试')
