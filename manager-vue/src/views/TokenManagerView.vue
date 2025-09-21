@@ -358,11 +358,18 @@
     <div v-if="showGetModal" class="modal modal-blur fade show" style="display: block;">
       <div class="modal-dialog modal-lg modal-dialog-centered" role="document" @click.stop>
         <div class="modal-content">
-          <div class="modal-header">
+          <div class="modal-header align-items-center">
             <h5 class="modal-title">获取 Token</h5>
+            <div class="ms-auto me-2 d-flex align-items-center">
+              <div class="form-check form-switch m-0">
+                <input class="form-check-input" type="checkbox" v-model="userReactivateMode" id="reactivateSwitch">
+                <label class="form-check-label ms-2" for="reactivateSwitch">重激活模式</label>
+              </div>
+            </div>
             <button type="button" class="btn-close" @click="closeGetModal"></button>
           </div>
           <div class="modal-body">
+
             <!-- 步骤指示器 -->
             <div class="steps-wrapper mb-4">
               <div class="steps">
@@ -570,18 +577,28 @@
                           {{ isReactivateMode ? '使用的邮箱' : '生成的邮箱' }}
                         </label>
                         <div class="input-group">
-                          <input
-                            type="text"
-                            :value="generatedEmail"
-                            :class="['form-control', generatedEmail ? (isReactivateMode ? 'bg-info-lt' : 'bg-success-lt') : '']"
-                            :placeholder="isReactivateMode ? '原邮箱信息' : '点击生成邮箱'"
-                            readonly
-                          >
+                          <template v-if="isReactivateMode">
+                            <input
+                              type="text"
+                              v-model="manualEmail"
+                              class="form-control"
+                              placeholder="输入邮箱用于监听验证码"
+                            >
+                          </template>
+                          <template v-else>
+                            <input
+                              type="text"
+                              :value="generatedEmail"
+                              :class="['form-control', generatedEmail ? 'bg-success-lt' : '']"
+                              placeholder="点击生成邮箱"
+                              readonly
+                            >
+                          </template>
                           <button
                             type="button"
                             :class="['btn', isReactivateMode ? 'btn-info' : 'btn-success']"
                             @click="copyEmail"
-                            :disabled="!generatedEmail"
+                            :disabled="!currentEmail"
                             title="复制邮箱"
                           >
                             <i class="bi bi-clipboard"></i>
@@ -612,7 +629,7 @@
                               type="checkbox"
                               v-model="autoRefreshVerificationCode"
                               @change="toggleAutoRefresh"
-                              :disabled="!generatedEmail"
+                              :disabled="!currentEmail"
                               style="margin: 0; flex-shrink: 0;"
                             >
                             <label class="form-check-label small mb-0" style="line-height: 1; margin: 0;">
@@ -645,7 +662,7 @@
                             type="button"
                             class="btn btn-primary"
                             @click="getVerificationCode"
-                            :disabled="isGettingVerificationCode || !generatedEmail"
+                            :disabled="isGettingVerificationCode || !currentEmail"
                             title="获取验证码"
                           >
                             <i :class="['bi', isGettingVerificationCode ? 'bi-arrow-clockwise refresh-spin' : 'bi-arrow-clockwise']"></i>
@@ -1584,10 +1601,12 @@ const remainingCooldownTime = computed(() => {
   if (!isGenerateOnCooldown.value) return 0
   return Math.ceil((generateCooldown - (currentTime.value - lastGenerateTime.value)) / 1000)
 })
+const userReactivateMode = ref(false)
+
 
 // 计算是否为重激活模式
 const isReactivateMode = computed(() => {
-  return generatedEmail.value && reactivatingToken.value !== null
+  return userReactivateMode.value || (generatedEmail.value && reactivatingToken.value !== null)
 })
 
 // 定时器更新当前时间
@@ -1631,6 +1650,9 @@ const selectedDomain = ref('')
 const customDomain = ref('')
 const emailType = ref('mixed')
 const emailPrefix = ref('')
+const manualEmail = ref('')
+const currentEmail = computed(() => (manualEmail.value.trim() ? manualEmail.value.trim() : generatedEmail.value))
+
 const emailLength = ref(10)
 const isGeneratingEmail = ref(false)
 const verificationCode = ref('')
@@ -2124,15 +2146,15 @@ const validateAndNextStep = async () => {
       tokenData.value = {
         tenant_url: data.data.tenant_url || '',
         access_token: data.data.access_token || '',
-        email: data.data.email || generatedEmail.value || '',
+        email: data.data.email || currentEmail.value || '',
         portal_url: isReactivateMode.value && reactivatingToken.value
           ? reactivatingToken.value.portal_url
           : (portalUrl.value || data.data.portal_url || '')
       }
 
       // 如果有生成的邮箱，自动填入邮箱备注
-      if (generatedEmail.value) {
-        emailNote.value = generatedEmail.value
+      if (currentEmail.value) {
+        emailNote.value = currentEmail.value
       }
 
       // 进入第三步
@@ -2314,6 +2336,8 @@ const showGetTokenModal = (isReactivate = false) => {
     reactivatingToken.value = null
     generatedEmail.value = ''
     emailNote.value = ''
+    userReactivateMode.value = false
+    manualEmail.value = ''
   }
 
   // 重置获取Token流程数据
@@ -2376,6 +2400,9 @@ const closeGetModal = () => {
   lastVerificationCode.value = ''
   autoRefreshVerificationCode.value = false
   stopVerificationRefresh()
+  // 清除手动重激活相关
+  userReactivateMode.value = false
+  manualEmail.value = ''
 }
 
 const generateAuthUrl = async () => {
@@ -3264,16 +3291,16 @@ const generateEmail = async () => {
 }
 
 const getVerificationCode = async (isAutoRefresh = false) => {
-  if (!generatedEmail.value) {
+  if (!currentEmail.value) {
     if (!isAutoRefresh) {
-      toast.error('请先生成邮箱')
+      toast.error('请先填写或生成邮箱')
     }
     return false
   }
 
   isGettingVerificationCode.value = true
   try {
-    const url = `/api/email/verification-code?email=${encodeURIComponent(generatedEmail.value)}`
+    const url = `/api/email/verification-code?email=${encodeURIComponent(currentEmail.value)}`
     const response = await apiGet(url)
     const data = await response.json()
 
@@ -3321,7 +3348,7 @@ const getVerificationCode = async (isAutoRefresh = false) => {
 
 const copyEmail = async () => {
   try {
-    await navigator.clipboard.writeText(generatedEmail.value)
+    await navigator.clipboard.writeText(currentEmail.value)
     toast.success('邮箱已复制到剪贴板')
   } catch (err) {
     console.error('复制失败:', err)
