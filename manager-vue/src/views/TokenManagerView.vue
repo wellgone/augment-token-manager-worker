@@ -222,6 +222,23 @@
                         isRefreshing && refreshingToken?.id === token.id ? 'bi-arrow-clockwise refresh-spin' : 'bi-arrow-clockwise']"
                     ></i>
                   </button>
+                  <button
+                    @click="copyTenantUrlFromRow(token)"
+                    class="btn btn-outline-secondary"
+                    :disabled="!token.tenant_url"
+                    title="复制 Tenant URL"
+                  >
+                    <i class="bi bi-clipboard"></i>
+                  </button>
+                  <button
+                    @click="copyAccessTokenFromRow(token)"
+                    class="btn btn-outline-secondary"
+                    :disabled="!token.access_token"
+                    title="复制 Token"
+                  >
+                    <i class="bi bi-clipboard"></i>
+                  </button>
+
                   <button @click="showEditTokenModal(token)" class="btn btn-warning">
                     <i class="bi bi-pencil-fill"></i>
                   </button>
@@ -3347,6 +3364,36 @@ const getVerificationCode = async (isAutoRefresh = false) => {
   } catch (error) {
     console.error('验证码获取失败:', error)
     if (!isAutoRefresh) {
+const copyTenantUrlFromRow = async (token: Token) => {
+  try {
+    const value = (token.tenant_url || '').trim()
+    if (!value) {
+      toast.error('无 Tenant URL 可复制')
+      return
+    }
+    await navigator.clipboard.writeText(value)
+    toast.success('Tenant URL 已复制到剪贴板')
+  } catch (err) {
+    console.error('复制失败:', err)
+    toast.error('复制失败')
+  }
+}
+
+const copyAccessTokenFromRow = async (token: Token) => {
+  try {
+    const value = (token.access_token || '').trim()
+    if (!value) {
+      toast.error('无 Token 可复制')
+      return
+    }
+    await navigator.clipboard.writeText(value)
+    toast.success('Token 已复制到剪贴板')
+  } catch (err) {
+    console.error('复制失败:', err)
+    toast.error('复制失败')
+  }
+}
+
       toast.error('网络错误，请重试')
     }
     return false
