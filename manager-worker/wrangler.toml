@@ -21,7 +21,7 @@ EMAIL_DOMAINS = ["lwg-lawyer.com","welldone.ggff.net","well.edu.kg","ellgone.cn"
 # 您的CloudMail部署基础URL (Your CloudMail deployment base URL)
 EMAIL_API_BASE_URL = "https://mail.wellgone.cn/"
 # CloudMail管理员令牌 (CloudMail admin token)
-EMAIL_API_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInRva2VuIjoiY2VmNTgwMGEtNTc0Ni00Yjc5LWFmMWYtNDU0MjQwNjQ1Y2U1IiwiaWF0IjoxNzU3NDIxOTc3fQ.R9_Kv6SyWdgjWn4OTSK3ACXhQSxcv2B38xk6jFVnv7Q"
+EMAIL_API_TOKEN = ""
 
 # KV存储命名空间配置 (KV Storage Namespaces)
 
