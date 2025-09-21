@@ -4,44 +4,47 @@
 
 ### Development Environment
 
-1. **Create KV Namespaces for Development**
+1. **Create Configuration File**
+   ```bash
+   # Copy example configuration
+   cp wrangler-dev.toml.example wrangler-dev.toml
+   ```
+
+2. **Create KV Namespaces for Development**
    ```bash
    npm run kv:create:dev
    ```
 
-2. **Set Development Secrets**
-   ```bash
-   npm run secret:dev JWT_SECRET
-   # Enter your JWT secret when prompted
-   
-   npm run secret:dev ADMIN_PASSWORD
-   # Enter your admin password when prompted
-   ```
+3. **Configure Development Environment**
+   - Edit `wrangler-dev.toml` with your actual values:
+     - Replace KV namespace IDs with the ones created above
+     - Update EMAIL_DOMAINS, EMAIL_API_BASE_URL, EMAIL_API_TOKEN with your email service
+     - Set USER_CREDENTIALS with your admin credentials
 
-3. **Start Development Server**
+4. **Start Development Server**
    ```bash
    npm run dev
    ```
 
 ### Production Environment
 
-1. **Create KV Namespaces for Production**
+1. **Create Configuration File**
+   ```bash
+   # Copy example configuration
+   cp wrangler.toml.example wrangler.toml
+   ```
+
+2. **Create KV Namespaces for Production**
    ```bash
    npm run kv:create:prod
    ```
 
-2. **Update wrangler.toml**
-   - Replace KV namespace IDs with the ones created above
-   - Update ALLOWED_ORIGINS with your production domain
-
-3. **Set Production Secrets**
-   ```bash
-   npm run secret:prod JWT_SECRET
-   # Enter your JWT secret when prompted
-   
-   npm run secret:prod ADMIN_PASSWORD
-   # Enter your admin password when prompted
-   ```
+3. **Configure Production Environment**
+   - Edit `wrangler.toml` with your actual values:
+     - Replace KV namespace IDs with the ones created above
+     - Update ALLOWED_ORIGINS with your production domain
+     - Update EMAIL_DOMAINS, EMAIL_API_BASE_URL, EMAIL_API_TOKEN with your email service
+     - Set USER_CREDENTIALS with secure production credentials
 
 4. **Deploy to Production**
    ```bash
@@ -66,8 +69,7 @@
 
 ### KV Namespace Management
 ```bash
-# Create individual namespaces
-wrangler kv:namespace create USERS_KV
+# Create individual namespaces (simplified structure)
 wrangler kv:namespace create TOKENS_KV
 wrangler kv:namespace create SESSIONS_KV
 
@@ -78,17 +80,14 @@ wrangler kv:namespace list
 wrangler kv:namespace delete --namespace-id=<id>
 ```
 
-### Secret Management
+### Configuration Management
 ```bash
-# Set secrets for specific environment
-wrangler secret put JWT_SECRET --config wrangler-dev.toml
-wrangler secret put ADMIN_PASSWORD --config wrangler-dev.toml
+# All configuration is in wrangler.toml files
+# No secrets management needed - credentials are in environment variables
 
-# List secrets
-wrangler secret list
-
-# Delete secret
-wrangler secret delete SECRET_NAME
+# List current configuration
+wrangler whoami
+wrangler kv:namespace list
 ```
 
 ### Deployment Commands
@@ -108,19 +107,20 @@ wrangler analytics
 
 ## Environment Variables
 
-### Required Secrets
-- `JWT_SECRET`: Secret key for JWT token signing
-- `ADMIN_PASSWORD`: Password for admin user login
-
-### Optional Secrets
-- `EMAIL_API_KEY`: API key for email service integration
-
-### Configuration Variables (set in wrangler.toml)
+### Required Configuration (set in wrangler.toml)
+- `USER_CREDENTIALS`: User credentials in format "admin:password"
 - `ALLOWED_ORIGINS`: Comma-separated list of allowed CORS origins
-- `JWT_EXPIRES_IN`: JWT token expiration time (e.g., "24h")
-- `REFRESH_TOKEN_EXPIRES_IN`: Refresh token expiration time (e.g., "7d")
+- `SESSION_EXPIRES_IN`: Session expiration time (e.g., "24h")
 - `RATE_LIMIT_LOGIN`: Login attempts per minute
 - `RATE_LIMIT_API`: API requests per minute
+
+### Email Service Configuration
+- `EMAIL_DOMAINS`: Array of available email domains
+- `EMAIL_API_BASE_URL`: Base URL of external email service (API path is hardcoded)
+- `EMAIL_API_TOKEN`: Authentication token for email service
+
+### Optional Configuration
+- `TOKEN_VALIDATION_TIMEOUT`: Timeout for token validation (default: "30000")
 
 ## Troubleshooting
 
@@ -134,8 +134,8 @@ wrangler analytics
    - Verify protocol (http/https) matches
 
 3. **Authentication Failures**
-   - Verify JWT_SECRET and ADMIN_PASSWORD are set correctly
-   - Check token expiration settings
+   - Verify USER_CREDENTIALS format is correct (username:password)
+   - Check session expiration settings
 
 4. **Rate Limiting**
    - Adjust rate limits in wrangler.toml if needed

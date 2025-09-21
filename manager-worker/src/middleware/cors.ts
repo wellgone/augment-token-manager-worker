@@ -9,16 +9,14 @@ export async function corsMiddleware(
   env: Env,
   ctx: ExecutionContext
 ): Promise<Response | null> {
-  const origin = request.headers.get('Origin');
-  const allowedOrigins = env.ALLOWED_ORIGINS ?
-    env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) :
-    ['*'];
+  // 简化CORS处理 - 不需要跨域配置，后端代理处理外部请求
+  const allowedOrigins = ['*']; // 允许所有来源，简化配置
 
   // Handle preflight OPTIONS requests
   if (request.method === 'OPTIONS') {
     return createCorsResponse(allowedOrigins);
   }
-  
+
   // For non-preflight requests, we'll add CORS headers in the response
   // This is handled in the addCorsHeaders utility function
   return null;

@@ -87,9 +87,9 @@ export async function getTokenByIdHandler(
     
     const url = new URL(request.url);
     const pathParts = url.pathname.split('/');
-    const tokenId = pathParts[pathParts.length - 1];
-    
-    if (!tokenId) {
+    const tokenId = pathParts[pathParts.indexOf('tokens') + 1];
+
+    if (!tokenId || tokenId === 'tokens') {
       return createErrorResponse('Token ID is required', 400);
     }
     
@@ -171,9 +171,16 @@ export async function updateTokenHandler(
     
     const url = new URL(request.url);
     const pathParts = url.pathname.split('/');
-    const tokenId = pathParts[pathParts.length - 1];
-    
-    if (!tokenId) {
+    const tokenId = pathParts[pathParts.indexOf('tokens') + 1];
+
+    console.log('Update token request:', {
+      url: url.pathname,
+      pathParts,
+      tokenId,
+      isReactivate: true
+    });
+
+    if (!tokenId || tokenId === 'tokens') {
       return createErrorResponse('Token ID is required', 400);
     }
     
@@ -221,9 +228,9 @@ export async function deleteTokenHandler(
     
     const url = new URL(request.url);
     const pathParts = url.pathname.split('/');
-    const tokenId = pathParts[pathParts.length - 1];
-    
-    if (!tokenId) {
+    const tokenId = pathParts[pathParts.indexOf('tokens') + 1];
+
+    if (!tokenId || tokenId === 'tokens') {
       return createErrorResponse('Token ID is required', 400);
     }
     
@@ -348,6 +355,69 @@ export async function validateTokenStatusHandler(
   } catch (error) {
     console.error('Validate token status error:', error);
     return createErrorResponse('Failed to validate token status', 500);
+  }
+}
+
+/**
+ * Batch validate tokens
+ */
+export async function batchValidateTokensHandler(
+  request: AuthenticatedRequest,
+  env: Env,
+  ctx: ExecutionContext
+): Promise<Response> {
+  try {
+    const user = getCurrentUser(request);
+    if (!user) {
+      return createErrorResponse('Authentication required', 401);
+    }
+
+    const body = await parseJsonBody<{ tokenIds: string[] }>(request);
+
+    if (!body.tokenIds || !Array.isArray(body.tokenIds)) {
+      return createErrorResponse('tokenIds array is required', 400);
+    }
+
+    if (body.tokenIds.length === 0) {
+      return createErrorResponse('At least one token ID is required', 400);
+    }
+
+    if (body.tokenIds.length > 50) {
+      return createErrorResponse('Maximum 50 tokens can be validated at once', 400);
+    }
+
+    const tokenService = new TokenService(env);
+
+    // 验证用户权限 - 只能验证自己的token（除非是admin）
+    if (user.role !== 'admin') {
+      const tokenChecks = await Promise.all(
+        body.tokenIds.map(id => tokenService.getTokenById(id))
+      );
+
+      const unauthorizedTokens = tokenChecks.filter(
+        token => token && token.created_by !== user.id
+      );
+
+      if (unauthorizedTokens.length > 0) {
+        return createErrorResponse('Access denied to some tokens', 403);
+      }
+    }
+
+    const results = await tokenService.validateTokensBatch(body.tokenIds);
+
+    return createSuccessResponse({
+      results,
+      summary: {
+        total: results.length,
+        valid: results.filter(r => r.isValid).length,
+        invalid: results.filter(r => !r.isValid).length,
+        errors: results.filter(r => r.error).length
+      }
+    }, 'Batch validation completed');
+
+  } catch (error) {
+    console.error('Batch validate tokens error:', error);
+    return createErrorResponse('Failed to validate tokens', 500);
   }
 }
 

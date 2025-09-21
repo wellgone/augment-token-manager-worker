@@ -45,7 +45,7 @@
                 ></i>
                 <span class="d-none d-sm-inline">{{ isBatchRefreshing ? '刷新中...' : '全部刷新' }}</span>
               </button>
-              <button @click="showGetTokenModal" class="btn btn-success" title="获取 Token">
+              <button @click="() => showGetTokenModal(false)" class="btn btn-success" title="获取 Token">
                 <i class="bi bi-link-45deg me-sm-2"></i>
                 <span class="d-none d-sm-inline">获取 Token</span>
               </button>
@@ -181,8 +181,8 @@
                       :class="['badge', 'cursor-pointer',
                         isValidating && validatingToken?.id === token.id ? 'bg-warning text-white' :
                         getTokenStatusClass(token)]"
-                      @click="showValidateModal(token)"
-                      title="点击验证Token状态"
+                      @click="handleStatusClick(token)"
+                      :title="getTokenStatus(token) === '失效' ? '点击选择操作（验证或重新激活）' : '点击验证Token状态'"
                     >
                       <span v-if="isValidating && validatingToken?.id === token.id" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                       {{ isValidating && validatingToken?.id === token.id ? '验证中' : getTokenStatus(token) }}
@@ -265,8 +265,8 @@
                       :class="['badge', 'cursor-pointer',
                         isValidating && validatingToken?.id === token.id ? 'bg-warning text-white' :
                         getTokenStatusClass(token)]"
-                      @click="showValidateModal(token)"
-                      title="点击验证Token状态"
+                      @click="handleStatusClick(token)"
+                      :title="getTokenStatus(token) === '失效' ? '点击选择操作（验证或重新激活）' : '点击验证Token状态'"
                     >
                       <span v-if="isValidating && validatingToken?.id === token.id" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                       {{ isValidating && validatingToken?.id === token.id ? '验证中' : getTokenStatus(token) }}
@@ -422,6 +422,8 @@
             <div v-if="getTokenStep === 2">
               <h6 class="mb-3">第二步：输入授权响应</h6>
               <p class="text-muted mb-3">请在浏览器中完成授权，然后将获得的响应信息粘贴到下方：</p>
+
+              <!-- 授权响应输入 -->
               <div class="mb-3">
                 <label class="form-label">授权响应JSON</label>
                 <textarea
@@ -442,7 +444,228 @@
                   <strong>格式要求：</strong>必须是JSON格式，包含 code、state、tenant_url 三个字段<br>
                 </div>
               </div>
-              <div class="mb-3">
+
+              <!-- 邮箱生成面板 -->
+              <div class="card mb-3 border-primary">
+                <div class="card-header bg-primary-lt">
+                  <div class="d-flex align-items-center justify-content-between">
+                    <h6 class="card-title mb-0 text-primary">
+                      <i class="bi bi-envelope me-2"></i>
+                      {{ isReactivateMode ? '邮箱信息' : '邮箱生成工具' }}
+                    </h6>
+                    <div v-if="isReactivateMode" class="badge bg-info text-white">
+                      重激活模式
+                    </div>
+                  </div>
+                  <div v-if="isReactivateMode" class="text-muted small mt-1">
+                    使用原邮箱，不可生成新邮箱
+                  </div>
+                </div>
+                <div class="card-body p-4">
+                  <div class="row g-4">
+                    <!-- 邮箱生成设置 -->
+                    <div class="col-lg-6" v-if="!isReactivateMode">
+                      <!-- 邮箱配置区域 - 减少高度和留白 -->
+                      <div class="mb-2" style="padding-top: 8px;">
+                        <label class="form-label fw-semibold">
+                          <i class="bi bi-gear me-1"></i>
+                          邮箱类型
+                        </label>
+                        <select v-model="emailType" class="form-select">
+                          <option value="mixed">混合（字母+数字）</option>
+                          <option value="word">单词（含前缀）</option>
+                        </select>
+                      </div>
+
+                      <!-- 分割线 -->
+                      <div class="border-top pt-2"></div>
+
+                      <div class="row">
+                        <div class="col-sm-6">
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                              <i class="bi bi-rulers me-1"></i>
+                              长度
+                            </label>
+                            <input
+                              type="number"
+                              v-model="emailLength"
+                              class="form-control"
+                              min="8"
+                              max="15"
+                              placeholder="8-15字符"
+                            >
+                          </div>
+                        </div>
+                        <div class="col-sm-6">
+                          <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                              <i class="bi bi-globe me-1"></i>
+                              域名
+                            </label>
+                            <select v-model="selectedDomain" class="form-select">
+                              <option value="">随机选择</option>
+                              <option v-for="domain in emailDomains" :key="domain" :value="domain">
+                                {{ domain }}
+                              </option>
+                              <option value="custom">自定义域名</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="mb-3" v-if="selectedDomain === 'custom'">
+                        <label class="form-label fw-semibold">
+                          <i class="bi bi-pencil me-1"></i>
+                          自定义域名
+                        </label>
+                        <input
+                          type="text"
+                          v-model="customDomain"
+                          class="form-control"
+                          placeholder="example.com"
+                        >
+                      </div>
+
+                      <div class="mb-3" v-if="emailType === 'word'">
+                        <label class="form-label fw-semibold">
+                          <i class="bi bi-type me-1"></i>
+                          前缀（可选）
+                        </label>
+                        <input
+                          type="text"
+                          v-model="emailPrefix"
+                          class="form-control"
+                          placeholder="输入前缀"
+                          maxlength="10"
+                        >
+                      </div>
+                    </div>
+
+                    <!-- 重激活模式提示 -->
+                    <div class="col-lg-6" v-if="isReactivateMode">
+                      <div class="alert alert-info border-info" style="margin-top: 50px;">
+                        <div class="d-flex">
+                          <div>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                              <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                              <path d="M12 8v4l3 3"/>
+                              <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/>
+                            </svg>
+                          </div>
+                          <div>
+                            <h6 class="alert-title">重激活模式</h6>
+                            <p class="mb-0">正在使用原Token的邮箱进行重激活，无法生成新邮箱。</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 邮箱和验证码 -->
+                    <div class="col-lg-6">
+                      <!-- 邮箱显示区域 - 减少高度和留白 -->
+                      <div class="mb-2" style="padding-top: 8px;">
+                        <label class="form-label fw-semibold">
+                          <i class="bi bi-envelope-check me-1"></i>
+                          {{ isReactivateMode ? '使用的邮箱' : '生成的邮箱' }}
+                        </label>
+                        <div class="input-group">
+                          <input
+                            type="text"
+                            :value="generatedEmail"
+                            :class="['form-control', generatedEmail ? (isReactivateMode ? 'bg-info-lt' : 'bg-success-lt') : '']"
+                            :placeholder="isReactivateMode ? '原邮箱信息' : '点击生成邮箱'"
+                            readonly
+                          >
+                          <button
+                            type="button"
+                            :class="['btn', isReactivateMode ? 'btn-info' : 'btn-success']"
+                            @click="copyEmail"
+                            :disabled="!generatedEmail"
+                            title="复制邮箱"
+                          >
+                            <i class="bi bi-clipboard"></i>
+                          </button>
+                          <button
+                            v-if="!isReactivateMode"
+                            type="button"
+                            class="btn btn-primary"
+                            @click="generateEmail"
+                            :disabled="isGeneratingEmail"
+                            title="生成邮箱"
+                          >
+                            <i :class="['bi', isGeneratingEmail ? 'bi-arrow-clockwise refresh-spin' : 'bi-arrow-clockwise']"></i>
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- 验证码获取 -->
+                      <div class="border-top pt-2">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                          <label class="form-label fw-semibold mb-0" style="line-height: 1;">
+                            <i class="bi bi-shield-check me-1"></i>
+                            验证码
+                          </label>
+                          <div class="form-check form-switch mb-0" style="margin: 0; padding: 0; display: flex; align-items: center; gap: 6px;">
+                            <input
+                              class="form-check-input"
+                              type="checkbox"
+                              v-model="autoRefreshVerificationCode"
+                              @change="toggleAutoRefresh"
+                              :disabled="!generatedEmail"
+                              style="margin: 0; flex-shrink: 0;"
+                            >
+                            <label class="form-check-label small mb-0" style="line-height: 1; margin: 0;">
+                              自动刷新
+                              <span v-if="autoRefreshVerificationCode" class="text-muted">
+                                (10s)
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div class="input-group mb-1">
+                          <input
+                            type="text"
+                            :value="verificationCode"
+                            :class="['form-control', verificationCode ? 'bg-warning-lt' : '']"
+                            placeholder="点击获取验证码"
+                            readonly
+                          >
+                          <button
+                            type="button"
+                            class="btn btn-warning"
+                            @click="copyVerificationCode"
+                            :disabled="!verificationCode"
+                            title="复制验证码"
+                          >
+                            <i class="bi bi-clipboard"></i>
+                          </button>
+                          <button
+                            type="button"
+                            class="btn btn-primary"
+                            @click="getVerificationCode"
+                            :disabled="isGettingVerificationCode || !generatedEmail"
+                            title="获取验证码"
+                          >
+                            <i :class="['bi', isGettingVerificationCode ? 'bi-arrow-clockwise refresh-spin' : 'bi-arrow-clockwise']"></i>
+                          </button>
+                        </div>
+
+                        <div class="alert alert-light border-0 py-1 mt-1" :style="{ visibility: verificationEmail && verificationTimestamp ? 'visible' : 'hidden' }">
+                          <div class="small text-muted">
+                            <i class="bi bi-info-circle me-1"></i>
+                            <span v-if="verificationEmail && verificationTimestamp">{{ verificationEmail }} · {{ formatTimestamp(verificationTimestamp) }}</span>
+                            <span v-else>&nbsp;</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="!isReactivateMode" class="mb-3">
                 <label class="form-label">Portal URL（可选）</label>
                 <input
                   type="text"
@@ -451,14 +674,28 @@
                   placeholder="请输入Portal URL（可选）"
                 >
               </div>
+              <div v-if="isReactivateMode" class="mb-3">
+                <label class="form-label">Portal URL</label>
+                <input
+                  type="text"
+                  :value="reactivatingToken?.portal_url || ''"
+                  class="form-control bg-info-lt"
+                  placeholder="使用原Token的Portal URL"
+                  readonly
+                >
+                <div class="form-hint">重新激活模式下将使用原Token的Portal URL</div>
+              </div>
             </div>
 
             <!-- 第三步：保存Token -->
             <div v-if="getTokenStep === 3">
-              <h6 class="mb-3">第三步：保存Token</h6>
+              <h6 class="mb-3">第三步：{{ isReactivateMode ? '更新Token' : '保存Token' }}</h6>
               <div v-if="tokenData.tenant_url">
                 <div class="alert alert-success">
-                  <h6>Token获取成功！</h6>
+                  <h6>{{ isReactivateMode ? 'Token重新激活成功！' : 'Token获取成功！' }}</h6>
+                  <div v-if="isReactivateMode" class="small text-muted mt-1">
+                    将覆盖原Token记录：{{ reactivatingToken?.id }}
+                  </div>
                 </div>
                 <form @submit.prevent="saveToken">
                   <div class="mb-3">
@@ -573,7 +810,7 @@
                   :class="['bi', 'me-1',
                     isSavingToken ? 'bi-arrow-clockwise refresh-spin' : 'bi-floppy']"
                 ></i>
-                {{ isSavingToken ? '保存中...' : '保存Token' }}
+                {{ isSavingToken ? (isReactivateMode ? '更新中...' : '保存中...') : (isReactivateMode ? '更新Token' : '保存Token') }}
               </button>
             </div>
           </div>
@@ -721,6 +958,110 @@
       </div>
     </div>
 
+    <!-- Token重激活确认模态框 -->
+    <div v-if="showReactivateModal" class="modal modal-blur fade show" style="display: block;">
+      <div class="modal-dialog modal-sm modal-dialog-centered" role="document" @click.stop>
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">重新激活Token</h5>
+            <button type="button" class="btn-close" @click="closeReactivateModal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-info" role="alert">
+              <div class="d-flex">
+                <div>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <path d="M12 8v4l3 3"/>
+                    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/>
+                  </svg>
+                </div>
+                <div>
+                  <h4 class="alert-title">重新激活失效的Token</h4>
+                  <div class="text-muted">将使用原邮箱重新获取Token，不会生成新邮箱</div>
+                </div>
+              </div>
+            </div>
+            <div class="text-muted small">
+              <strong>原邮箱：</strong>{{ reactivatingToken?.email_note || '无邮箱信息' }}<br>
+              <strong>Tenant URL：</strong>{{ reactivatingToken?.tenant_url }}<br>
+              <strong>创建时间：</strong>{{ reactivatingToken?.created_at }}
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn me-auto" @click="closeReactivateModal">
+              <i class="bi bi-x-lg me-1"></i>
+              取消
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              @click="confirmReactivateToken"
+              :disabled="isReactivating"
+            >
+              <i :class="['bi', 'me-1', isReactivating ? 'bi-arrow-clockwise refresh-spin' : 'bi-arrow-clockwise']"></i>
+              {{ isReactivating ? '重激活中...' : '确认重激活' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 失效Token操作选择模态框 -->
+    <div v-if="showInvalidTokenActionModal" class="modal modal-blur fade show" style="display: block;">
+      <div class="modal-dialog modal-sm modal-dialog-centered" role="document" @click.stop>
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">选择操作</h5>
+            <button type="button" class="btn-close" @click="closeInvalidTokenActionModal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-warning" role="alert">
+              <div class="d-flex">
+                <div>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <path d="M12 9v2m0 4v.01"/>
+                    <path d="M5 19h14a2 2 0 0 0 1.84 -2.75l-7.1 -12.25a2 2 0 0 0 -3.5 0l-7.1 12.25a2 2 0 0 0 1.75 2.75"/>
+                  </svg>
+                </div>
+                <div>
+                  <h4 class="alert-title">Token状态为失效</h4>
+                  <div class="text-muted">请选择要执行的操作：</div>
+                </div>
+              </div>
+            </div>
+            <div class="mb-3">
+              <strong>Token ID：</strong>{{ selectedInvalidToken?.id }}<br>
+              <strong>Tenant URL：</strong>{{ selectedInvalidToken?.tenant_url }}
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn me-auto" @click="closeInvalidTokenActionModal">
+              <i class="bi bi-x-lg me-1"></i>
+              取消
+            </button>
+            <button
+              type="button"
+              class="btn btn-info me-2"
+              @click="validateInvalidToken"
+            >
+              <i class="bi bi-shield-check me-1"></i>
+              验证状态
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              @click="reactivateInvalidToken"
+            >
+              <i class="bi bi-arrow-clockwise me-1"></i>
+              重新激活
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 批量验证确认模态框 -->
     <div v-if="showBatchValidateModal" class="modal modal-blur fade show" style="display: block;">
       <div class="modal-dialog modal-sm modal-dialog-centered" role="document" @click.stop>
@@ -746,12 +1087,12 @@
               </div>
             </div>
             <div class="text-muted small">
-              <strong>将要验证：</strong>{{ tokens.length }} 个Token
+              <strong>将要验证：</strong>{{ batchValidateResults.total }} 个Token
               <template v-if="activeFilter">
                 <span class="badge text-bg-primary ms-2">{{ activeFilter }}</span>
               </template>
               <template v-else>
-                <span class="badge text-bg-light ms-2">全部状态</span>
+                <span class="badge text-bg-light ms-2">仅正常、未知和失效状态</span>
               </template><br>
               <strong>验证方式：</strong>逐个验证，避免服务器压力
             </div>
@@ -1244,6 +1585,11 @@ const remainingCooldownTime = computed(() => {
   return Math.ceil((generateCooldown - (currentTime.value - lastGenerateTime.value)) / 1000)
 })
 
+// 计算是否为重激活模式
+const isReactivateMode = computed(() => {
+  return generatedEmail.value && reactivatingToken.value !== null
+})
+
 // 定时器更新当前时间
 let cooldownTimer: number | null = null
 
@@ -1277,6 +1623,33 @@ const tokenData = ref({
 })
 const emailNote = ref('')
 const isSavingToken = ref(false)
+
+// 邮箱生成相关数据
+const generatedEmail = ref('')
+const emailDomains = ref<string[]>([])
+const selectedDomain = ref('')
+const customDomain = ref('')
+const emailType = ref('mixed')
+const emailPrefix = ref('')
+const emailLength = ref(10)
+const isGeneratingEmail = ref(false)
+const verificationCode = ref('')
+const verificationEmail = ref('')
+const verificationTimestamp = ref('')
+const isGettingVerificationCode = ref(false)
+const autoRefreshVerificationCode = ref(false)
+const verificationRefreshTimer = ref<number | null>(null)
+const lastVerificationCode = ref('')  // 记录上次获取的验证码
+
+// 重激活相关数据
+const showReactivateModal = ref(false)
+const reactivatingToken = ref<Token | null>(null)
+const isReactivating = ref(false)
+
+// 失效Token操作选择
+const showInvalidTokenActionModal = ref(false)
+const selectedInvalidToken = ref<Token | null>(null)
+
 const newToken = ref<NewToken>({
   email: '',
   token: ''
@@ -1348,7 +1721,7 @@ const codeVerifier = ref('')
 const state = ref('')
 
 // 添加Token相关数据
-const addTokenTab = ref<'single' | 'batch'>('single')
+const addTokenTab = ref<'single' | 'batch'>('batch')
 const singleToken = ref({
   tenant_url: '',
   access_token: '',
@@ -1356,7 +1729,7 @@ const singleToken = ref({
   email_note: ''
 })
 const batchImport = ref<BatchImport>({
-  type: 'csv',
+  type: 'json',
   csvFile: null,
   jsonData: ''
 })
@@ -1688,7 +2061,7 @@ const getTokenStatusClass = (token: Token): string => {
     case '正常':
       return 'bg-success text-white'
     case '失效':
-      return 'bg-warning text-dark'  // 失效改为警告色
+      return 'bg-warning-subtle text-warning-emphasis'  // 失效改为淡黄色
     case '封禁':
       return 'bg-danger text-white'   // 封禁保持红色
     case '过期':
@@ -1747,12 +2120,19 @@ const validateAndNextStep = async () => {
     const data = await response.json()
 
     if (data.success && data.data?.access_token) {
-      // 保存Token数据，使用用户填入的portal_url
+      // 保存Token数据，重新激活模式下使用原portal_url
       tokenData.value = {
         tenant_url: data.data.tenant_url || '',
         access_token: data.data.access_token || '',
-        email: data.data.email || '',
-        portal_url: portalUrl.value || data.data.portal_url || ''
+        email: data.data.email || generatedEmail.value || '',
+        portal_url: isReactivateMode.value && reactivatingToken.value
+          ? reactivatingToken.value.portal_url
+          : (portalUrl.value || data.data.portal_url || '')
+      }
+
+      // 如果有生成的邮箱，自动填入邮箱备注
+      if (generatedEmail.value) {
+        emailNote.value = generatedEmail.value
       }
 
       // 进入第三步
@@ -1779,24 +2159,45 @@ const saveToken = async () => {
   isSavingToken.value = true
 
   try {
-    const payload = {
+    const payload: any = {
       tenant_url: tokenData.value.tenant_url,
       access_token: tokenData.value.access_token,
       email: tokenData.value.email,
-      portal_url: tokenData.value.portal_url,
+      portal_url: isReactivateMode.value && reactivatingToken.value
+        ? reactivatingToken.value.portal_url
+        : tokenData.value.portal_url,
       email_note: emailNote.value
     }
 
-    const response = await apiPost('/api/auth/save-token', payload)
+    // 重新激活时设置状态为正常
+    if (isReactivateMode.value) {
+      payload.ban_status = JSON.stringify({ status: 'NORMAL' })
+    }
+
+    let response
+    let successMessage = 'Token保存成功'
+
+    // 检查是否为重新激活模式
+    if (isReactivateMode.value && reactivatingToken.value) {
+      // 重新激活模式：更新现有Token
+      response = await apiPut(`/api/tokens/${reactivatingToken.value.id}`, payload)
+      successMessage = 'Token重新激活成功'
+    } else {
+      // 普通模式：创建新Token
+      response = await apiPost('/api/auth/save-token', payload)
+    }
 
     const data = await response.json()
 
     if (data.success) {
-      toast.success(data.message || 'Token保存成功')
+      toast.success(data.message || successMessage)
 
       // 关闭模态框并刷新Token列表
       showGetModal.value = false
       refreshTokens()
+
+      // 清除重新激活状态
+      reactivatingToken.value = null
     } else {
       toast.error(data.error || data.message || 'Token保存失败')
     }
@@ -1858,14 +2259,14 @@ const validateAllTokens = () => {
     return
   }
 
-  // 筛选出可以验证的Token（正常和未知状态）
+  // 筛选出可以验证的Token（正常、未知和失效状态）
   const validatableTokens = tokens.value.filter(token => {
     const status = getTokenStatus(token)
-    return status === '正常' || status === '未知'
+    return status === '正常' || status === '未知' || status === '失效'
   })
 
   if (validatableTokens.length === 0) {
-    toast.info('没有可验证的Token（只有正常和未知状态的Token可以验证）')
+    toast.info('没有可验证的Token（只有正常、未知和失效状态的Token可以验证）')
     return
   }
 
@@ -1907,7 +2308,14 @@ const showBatchRefreshConfirm = () => {
 
 
 
-const showGetTokenModal = () => {
+const showGetTokenModal = (isReactivate = false) => {
+  // 强制清空所有可能残留的重激活状态
+  if (!isReactivate) {
+    reactivatingToken.value = null
+    generatedEmail.value = ''
+    emailNote.value = ''
+  }
+
   // 重置获取Token流程数据
   getTokenStep.value = 1
   authUrl.value = ''
@@ -1931,11 +2339,43 @@ const showGetTokenModal = () => {
   lastGenerateTime.value = 0  // 重置冷却时间
   currentTime.value = Date.now()
   stopCooldownTimer()  // 停止定时器
+
+  // 重置邮箱生成相关数据
+  if (!isReactivate) {
+    // 新建模式：清空所有邮箱相关数据
+    generatedEmail.value = ''
+    reactivatingToken.value = null
+  }
+  // 重激活模式：保留generatedEmail，但清空其他数据
+
+  selectedDomain.value = ''
+  customDomain.value = ''
+  emailType.value = 'mixed'
+  emailPrefix.value = ''
+  emailLength.value = 10
+
+  // 验证码相关数据总是清空，每次都重新获取
+  verificationCode.value = ''
+  verificationEmail.value = ''
+  verificationTimestamp.value = ''
+  lastVerificationCode.value = ''
+  autoRefreshVerificationCode.value = false
+  stopVerificationRefresh()
+
   showGetModal.value = true
 }
 
 const closeGetModal = () => {
   showGetModal.value = false
+  // 清除重激活状态
+  reactivatingToken.value = null
+  // 清除验证码缓存
+  verificationCode.value = ''
+  verificationEmail.value = ''
+  verificationTimestamp.value = ''
+  lastVerificationCode.value = ''
+  autoRefreshVerificationCode.value = false
+  stopVerificationRefresh()
 }
 
 const generateAuthUrl = async () => {
@@ -2020,7 +2460,7 @@ const completeGetToken = () => {
 
 const showAddTokenModal = () => {
   // 重置添加Token数据
-  addTokenTab.value = 'single'
+  addTokenTab.value = 'batch'
   singleToken.value = {
     tenant_url: '',
     access_token: '',
@@ -2028,7 +2468,7 @@ const showAddTokenModal = () => {
     email_note: ''
   }
   batchImport.value = {
-    type: 'csv',
+    type: 'json',
     csvFile: null,
     jsonData: ''
   }
@@ -2046,7 +2486,7 @@ const closeAddModal = () => {
     portal_url: '',
     email_note: ''
   }
-  addTokenTab.value = 'single'
+  addTokenTab.value = 'batch'
 }
 
 const addSingleToken = async () => {
@@ -2492,9 +2932,9 @@ const deleteToken = (token: Token) => {
 const showValidateModal = (token: Token) => {
   const currentStatus = getTokenStatus(token)
 
-  // 只有正常和未知状态的Token才能弹出验证模态框
-  if (currentStatus !== '正常' && currentStatus !== '未知') {
-    toast.info(`Token状态为"${currentStatus}"，无需验证`)
+  // 正常、未知和失效状态的Token都可以验证
+  if (currentStatus !== '正常' && currentStatus !== '未知' && currentStatus !== '失效') {
+    toast.info(`Token状态为"${currentStatus}"，无法验证`)
     return
   }
 
@@ -2515,9 +2955,9 @@ const confirmValidateToken = async () => {
 
   const tokenToValidate = validatingToken.value
 
-  // 检查Token状态，只有正常状态的Token才能验证
+  // 检查Token状态，正常、未知和失效状态的Token都可以验证
   const currentStatus = getTokenStatus(tokenToValidate)
-  if (currentStatus !== '正常') {
+  if (currentStatus !== '正常' && currentStatus !== '未知' && currentStatus !== '失效') {
     toast.error(`Token状态为"${currentStatus}"，无法进行验证`)
     cancelValidateToken()
     return
@@ -2570,12 +3010,74 @@ const closeBatchValidateModal = () => {
 const confirmBatchValidate = async () => {
   isBatchValidating.value = true
 
-  // 筛选出可以验证的Token（正常和未知状态）
+  // 筛选出可以验证的Token（正常、未知和失效状态）
   const validatableTokens = tokens.value.filter(token => {
     const status = getTokenStatus(token)
-    return status === '正常' || status === '未知'
+    return status === '正常' || status === '未知' || status === '失效'
   })
 
+  // 重置结果
+  batchValidateResults.value = {
+    valid: 0,
+    invalid: 0,
+    failed: 0,
+    total: validatableTokens.length
+  }
+
+  try {
+    // 使用新的批量验证API
+    const tokenIds = validatableTokens.map(token => token.id)
+    const response = await apiPost('/api/tokens/batch-validate', { tokenIds })
+
+    const data = await response.json()
+
+    if (data.success && data.data.results) {
+      // 处理批量验证结果
+      for (const result of data.data.results) {
+        // 更新本地Token数据
+        if (result.token) {
+          const index = tokens.value.findIndex(t => t.id === result.tokenId)
+          if (index > -1) {
+            tokens.value[index] = result.token
+          }
+        }
+
+        // 统计结果
+        if (result.error) {
+          batchValidateResults.value.failed++
+        } else if (result.isValid) {
+          batchValidateResults.value.valid++
+        } else {
+          batchValidateResults.value.invalid++
+        }
+      }
+
+      // 显示详细结果
+      const { valid, invalid, failed, total } = batchValidateResults.value
+      const summary = data.data.summary
+      toast.success(`批量验证完成！有效: ${summary?.valid || valid}, 失效: ${summary?.invalid || invalid}, 错误: ${summary?.errors || failed}, 总计: ${summary?.total || total}`)
+    } else {
+      // API调用失败，回退到逐个验证
+      console.warn('批量验证API失败，回退到逐个验证')
+      await fallbackIndividualValidation(validatableTokens)
+    }
+  } catch (error) {
+    console.error('批量验证失败，回退到逐个验证:', error)
+    // 回退到逐个验证
+    await fallbackIndividualValidation(validatableTokens)
+  }
+
+  // 验证完成
+  isBatchValidating.value = false
+
+  // 延迟关闭模态框
+  setTimeout(() => {
+    closeBatchValidateModal()
+  }, 2000)
+}
+
+// 回退到逐个验证的方法
+const fallbackIndividualValidation = async (validatableTokens) => {
   // 重置结果
   batchValidateResults.value = {
     valid: 0,
@@ -2590,7 +3092,6 @@ const confirmBatchValidate = async () => {
 
     try {
       const response = await apiPost(`/api/tokens/${token.id}/validate`, {})
-
       const data = await response.json()
 
       if (data.success) {
@@ -2620,17 +3121,9 @@ const confirmBatchValidate = async () => {
     }
   }
 
-  // 验证完成
-  isBatchValidating.value = false
-
   // 显示结果
   const { valid, invalid, failed, total } = batchValidateResults.value
   toast.success(`批量验证完成！有效: ${valid}, 失效: ${invalid}, 错误: ${failed}, 总计: ${total}`)
-
-  // 延迟关闭模态框
-  setTimeout(() => {
-    closeBatchValidateModal()
-  }, 2000)
 }
 
 // 批量刷新相关方法
@@ -2702,6 +3195,282 @@ const confirmBatchRefresh = async () => {
     closeBatchRefreshModal()
   }, 2000)
 }
+
+// 邮箱生成相关方法
+const loadEmailDomains = async () => {
+  try {
+    const response = await apiGet('/api/email/domains')
+    const data = await response.json()
+    if (data.success) {
+      emailDomains.value = data.data.domains || []
+    }
+  } catch (error) {
+    console.error('获取邮箱域名失败:', error)
+  }
+}
+
+const generateEmail = async () => {
+  // 在重激活模式下禁用邮箱生成
+  if (isReactivateMode.value) {
+    toast.warning('重激活模式下无法生成新邮箱')
+    return
+  }
+
+  isGeneratingEmail.value = true
+  try {
+    const options: any = {
+      type: emailType.value,
+      length: emailLength.value || 10
+    }
+
+    if (emailType.value === 'word' && emailPrefix.value) {
+      options.prefix = emailPrefix.value
+    }
+
+    if (selectedDomain.value === 'custom' && customDomain.value) {
+      if (!customDomain.value.trim()) {
+        toast.error('请输入自定义域名')
+        return
+      }
+      options.customDomain = customDomain.value.trim()
+    } else if (selectedDomain.value && selectedDomain.value !== 'custom') {
+      options.domain = selectedDomain.value
+    }
+
+    const response = await apiPost('/api/email/generate', options)
+    const data = await response.json()
+
+    if (data.success) {
+      generatedEmail.value = data.data.email
+      // 更新可用域名列表
+      if (data.data.availableDomains) {
+        emailDomains.value = data.data.availableDomains
+      }
+      toast.success('邮箱生成成功')
+    } else {
+      // 检查是否是配置错误
+      if (data.error && data.error.includes('not configured')) {
+        toast.error('邮箱服务未配置，请联系管理员')
+      } else {
+        toast.error(data.error || '邮箱生成失败')
+      }
+    }
+  } catch (error) {
+    console.error('邮箱生成失败:', error)
+    toast.error('网络错误，请重试')
+  } finally {
+    isGeneratingEmail.value = false
+  }
+}
+
+const getVerificationCode = async (isAutoRefresh = false) => {
+  if (!generatedEmail.value) {
+    if (!isAutoRefresh) {
+      toast.error('请先生成邮箱')
+    }
+    return false
+  }
+
+  isGettingVerificationCode.value = true
+  try {
+    const url = `/api/email/verification-code?email=${encodeURIComponent(generatedEmail.value)}`
+    const response = await apiGet(url)
+    const data = await response.json()
+
+    if (data.success) {
+      const newCode = data.verificationCode || ''
+
+      // 检查是否与上次获取的验证码相同
+      if (isAutoRefresh && newCode === lastVerificationCode.value && newCode !== '') {
+        console.log('验证码未变化，不计入有效获取')
+        return false
+      }
+
+      // 更新验证码信息
+      verificationCode.value = newCode
+      verificationEmail.value = data.recipientEmail || ''
+      verificationTimestamp.value = data.timestamp || ''
+      lastVerificationCode.value = newCode
+
+      if (!isAutoRefresh) {
+        toast.success('验证码获取成功')
+      }
+
+      return true
+    } else {
+      if (!isAutoRefresh) {
+        // 检查是否是配置错误
+        if (data.error && data.error.includes('not configured')) {
+          toast.error('邮箱服务未配置，请联系管理员')
+        } else {
+          toast.error(data.error || '验证码获取失败')
+        }
+      }
+      return false
+    }
+  } catch (error) {
+    console.error('验证码获取失败:', error)
+    if (!isAutoRefresh) {
+      toast.error('网络错误，请重试')
+    }
+    return false
+  } finally {
+    isGettingVerificationCode.value = false
+  }
+}
+
+const copyEmail = async () => {
+  try {
+    await navigator.clipboard.writeText(generatedEmail.value)
+    toast.success('邮箱已复制到剪贴板')
+  } catch (err) {
+    console.error('复制失败:', err)
+    toast.error('复制失败')
+  }
+}
+
+const copyVerificationCode = async () => {
+  try {
+    await navigator.clipboard.writeText(verificationCode.value)
+    toast.success('验证码已复制到剪贴板')
+  } catch (err) {
+    console.error('复制失败:', err)
+    toast.error('复制失败')
+  }
+}
+
+const toggleAutoRefresh = () => {
+  if (autoRefreshVerificationCode.value) {
+    startVerificationRefresh()
+  } else {
+    stopVerificationRefresh()
+  }
+}
+
+const startVerificationRefresh = () => {
+  if (verificationRefreshTimer.value) {
+    clearInterval(verificationRefreshTimer.value)
+  }
+
+  const doRefresh = async () => {
+    const result = await getVerificationCode(true)
+
+    // 简化逻辑：固定10秒间隔，只判断是否相同，相同时不弹窗提示
+    if (result === false) {
+      console.log('验证码未更新或获取失败，10秒后重试')
+    } else {
+      console.log('验证码获取成功')
+    }
+
+    // 重新设置定时器，固定10秒间隔
+    if (autoRefreshVerificationCode.value) {
+      stopVerificationRefresh()
+      verificationRefreshTimer.value = setTimeout(doRefresh, 10000)
+    }
+  }
+
+  // 立即执行一次，然后设置定时器
+  verificationRefreshTimer.value = setTimeout(doRefresh, 10000)
+}
+
+const stopVerificationRefresh = () => {
+  if (verificationRefreshTimer.value) {
+    clearTimeout(verificationRefreshTimer.value)
+    verificationRefreshTimer.value = null
+  }
+}
+
+const formatTimestamp = (timestamp: string) => {
+  // 只显示时间部分，不显示日期
+  return new Date(timestamp).toLocaleTimeString()
+}
+
+// 处理状态点击事件
+const handleStatusClick = (token: Token) => {
+  const status = getTokenStatus(token)
+  if (status === '失效') {
+    // 失效状态：显示选择菜单（验证或重新激活）
+    showInvalidTokenActionModal.value = true
+    selectedInvalidToken.value = token
+  } else {
+    showValidateModal(token)
+  }
+}
+
+// 重激活相关方法
+const closeReactivateModal = () => {
+  showReactivateModal.value = false
+  reactivatingToken.value = null
+  isReactivating.value = false
+  // 清除可能设置的邮箱信息，避免影响后续的新建Token流程
+  generatedEmail.value = ''
+  emailNote.value = ''
+}
+
+// 失效Token操作选择相关方法
+const closeInvalidTokenActionModal = () => {
+  showInvalidTokenActionModal.value = false
+  selectedInvalidToken.value = null
+}
+
+const validateInvalidToken = () => {
+  if (selectedInvalidToken.value) {
+    const token = selectedInvalidToken.value
+    closeInvalidTokenActionModal()
+    showValidateModal(token)
+  }
+}
+
+const reactivateInvalidToken = () => {
+  if (selectedInvalidToken.value) {
+    reactivatingToken.value = selectedInvalidToken.value
+    closeInvalidTokenActionModal()
+    showReactivateModal.value = true
+  }
+}
+
+const confirmReactivateToken = async () => {
+  if (!reactivatingToken.value) {
+    return
+  }
+
+  const tokenToReactivate = reactivatingToken.value
+  isReactivating.value = true
+
+  try {
+    // 关闭重激活模态框
+    closeReactivateModal()
+
+    // 打开获取Token模态框，并预设邮箱信息
+    showGetTokenModal(true)
+
+    // 如果有原邮箱信息，预设到生成的邮箱字段
+    if (tokenToReactivate.email_note) {
+      generatedEmail.value = tokenToReactivate.email_note
+      emailNote.value = tokenToReactivate.email_note
+    }
+
+    // 保持重激活Token的引用，用于判断重激活模式
+    reactivatingToken.value = tokenToReactivate
+
+    toast.info('已进入重激活流程，将使用原邮箱重新获取Token')
+  } catch (error) {
+    console.error('重激活失败:', error)
+    toast.error('重激活失败，请重试')
+  } finally {
+    isReactivating.value = false
+  }
+}
+
+// 在组件挂载时加载邮箱域名
+onMounted(() => {
+  loadEmailDomains()
+})
+
+// 在组件卸载时清理定时器
+onUnmounted(() => {
+  stopVerificationRefresh()
+})
 </script>
 
 <style scoped>

@@ -202,8 +202,8 @@ export async function rateLimitMiddleware(
  * Create rate limit middleware for login endpoints
  */
 export function createLoginRateLimitMiddleware(env: Env) {
-  const limit = parseInt(env.RATE_LIMIT_LOGIN, 10) || 10;
-  return (request: Request, _env: Env, ctx: ExecutionContext) => 
+  const limit = parseInt(env.RATE_LIMIT_LOGIN || '10', 10); // 硬编码默认值：10次/分钟
+  return (request: Request, _env: Env, ctx: ExecutionContext) =>
     rateLimitMiddleware(request, env, ctx, limit, 60000); // 1 minute window
 }
 
@@ -211,8 +211,8 @@ export function createLoginRateLimitMiddleware(env: Env) {
  * Create rate limit middleware for API endpoints
  */
 export function createApiRateLimitMiddleware(env: Env) {
-  const limit = parseInt(env.RATE_LIMIT_API, 10) || 100;
-  return (request: Request, _env: Env, ctx: ExecutionContext) => 
+  const limit = parseInt(env.RATE_LIMIT_API || '100', 10); // 硬编码默认值：100次/分钟
+  return (request: Request, _env: Env, ctx: ExecutionContext) =>
     rateLimitMiddleware(request, env, ctx, limit, 60000); // 1 minute window
 }
 

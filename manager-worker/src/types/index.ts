@@ -1,7 +1,6 @@
 // Environment bindings
 export interface Env {
   // KV Namespaces
-  USERS_KV: KVNamespace;
   TOKENS_KV: KVNamespace;
   SESSIONS_KV: KVNamespace;
 
@@ -13,13 +12,11 @@ export interface Env {
 
   // Secrets
   USER_CREDENTIALS: string;
-  EMAIL_API_KEY?: string;
 
-  // Environment variables
-  ALLOWED_ORIGINS: string;
-  SESSION_EXPIRES_IN: string;
-  RATE_LIMIT_LOGIN: string;
-  RATE_LIMIT_API: string;
+  // Email service configuration (CloudMail integration) - optional
+  EMAIL_DOMAINS?: string[] | string;
+  EMAIL_API_BASE_URL?: string;
+  EMAIL_API_TOKEN?: string;
 }
 
 // User types
@@ -153,6 +150,7 @@ export interface UpdateTokenRequest {
   access_token?: string;
   portal_url?: string;
   email_note?: string;
+  ban_status?: string;
 }
 
 export interface CreateUuidRequest {

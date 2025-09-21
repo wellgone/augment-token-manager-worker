@@ -1,0 +1,47 @@
+# 生产环境配置文件
+name = "augtoken-manager"
+main = "src/index.ts"
+compatibility_date = "2025-09-20"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+
+[vars]
+# 用户凭据，格式: 用户名:密码 (User credentials, format: username:password)
+USER_CREDENTIALS = "admin:your-secure-password"
+
+# 数值配置已硬编码，无需配置：
+# - SESSION_EXPIRES_IN: 24小时
+# - RATE_LIMIT_LOGIN: 10次/分钟
+# - RATE_LIMIT_API: 100次/分钟
+# - TOKEN_VALIDATION_TIMEOUT: 30秒
+# - ALLOWED_ORIGINS: 已移除（后端代理处理）
+
+# CloudMail邮箱服务配置 (CloudMail email service configuration) - 可选
+# 可用的邮箱域名列表 (Available email domains)
+EMAIL_DOMAINS = ["your-domain1.com","your-domain2.com","your-domain3.com"]
+# 您的CloudMail部署基础URL (Your CloudMail deployment base URL)
+EMAIL_API_BASE_URL = "https://your-cloudmail-domain.com"
+# CloudMail管理员令牌 (CloudMail admin token)
+EMAIL_API_TOKEN = "your-cloudmail-admin-token"
+
+# KV存储命名空间配置 (KV Storage Namespaces)
+# 使用 npm run kv:create:prod 创建命名空间后，将生成的ID替换下面的占位符
+# (Create namespaces with: npm run kv:create:prod, then replace IDs below)
+
+# Token记录存储 (Token records storage)
+[[kv_namespaces]]
+binding = "TOKENS_KV"
+id = "your-tokens-kv-namespace-id"
+
+# 会话和临时数据存储 (Session and temporary data storage)
+# 包含：用户会话、OAuth状态、速率限制数据
+# (Contains: user sessions, OAuth state, rate limiting data)
+[[kv_namespaces]]
+binding = "SESSIONS_KV"
+id = "your-sessions-kv-namespace-id"

@@ -1,115 +1,16 @@
 import { Env, AuthenticatedRequest, LoginRequest } from '../types/index.js';
-import { AuthService } from '../services/authService.js';
 import {
   createSuccessResponse,
   createErrorResponse,
   parseJsonBody,
   createUnauthorizedResponse
 } from '../utils/response.js';
-import { validateData, ValidationRules } from '../utils/validation.js';
 import { getCurrentUser, getCurrentSession } from '../middleware/auth.js';
-import { extractSessionToken } from '../utils/auth.js';
+import { OAuthHandlers } from '../oauth/handlers.js';
 
-/**
- * Generate random bytes and encode as base64url (without padding)
- */
-function base64URLEncode(data: Uint8Array): string {
-  return btoa(String.fromCharCode(...data))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-}
+// Legacy OAuth functions removed - now using oauth module
 
-/**
- * Generate OAuth 2.0 PKCE parameters (Augment style)
- */
-async function createAugmentOAuthState() {
-  // Generate code_verifier (32 random bytes, base64url encoded)
-  const verifierBytes = crypto.getRandomValues(new Uint8Array(32));
-  const codeVerifier = base64URLEncode(verifierBytes);
-
-  // Generate code_challenge = BASE64URL(SHA256(code_verifier))
-  const encoder = new TextEncoder();
-  const data = encoder.encode(codeVerifier);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  const codeChallenge = base64URLEncode(new Uint8Array(hash));
-
-  // Generate state (8 random bytes, base64url encoded)
-  const stateBytes = crypto.getRandomValues(new Uint8Array(8));
-  const state = base64URLEncode(stateBytes);
-
-  return {
-    codeVerifier,
-    codeChallenge,
-    state,
-    creationTime: Date.now()
-  };
-}
-
-/**
- * Generate Augment authorization URL
- */
-function generateAugmentAuthorizeURL(oauthState: {
-  codeChallenge: string;
-  state: string;
-}): string {
-  const authUrl = new URL('https://auth.augmentcode.com/authorize');
-  authUrl.searchParams.set('response_type', 'code');
-  authUrl.searchParams.set('code_challenge', oauthState.codeChallenge);
-  authUrl.searchParams.set('client_id', 'v'); // Augment client ID
-  authUrl.searchParams.set('state', oauthState.state);
-  authUrl.searchParams.set('prompt', 'login');
-
-  return authUrl.toString();
-}
-
-/**
- * Exchange authorization code for access token
- */
-async function getAugmentAccessToken(
-  tenantUrl: string,
-  codeVerifier: string,
-  authCode: string
-): Promise<{
-  access_token: string;
-  email: string;
-  portal_url: string;
-}> {
-  const tokenUrl = new URL('/oauth/token', tenantUrl);
-
-  const response = await fetch(tokenUrl.toString(), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      code: authCode,
-      code_verifier: codeVerifier,
-      client_id: 'v',
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Token exchange failed: ${response.status} ${response.statusText}`);
-  }
-
-  const tokenData = await response.json() as {
-    access_token: string;
-    email?: string;
-    portal_url?: string;
-  };
-
-  if (!tokenData.access_token) {
-    throw new Error('No access token in response');
-  }
-
-  return {
-    access_token: tokenData.access_token,
-    email: tokenData.email || '',
-    portal_url: tokenData.portal_url || '',
-  };
-}
+// Legacy getAugmentAccessToken function removed - now using oauth module
 
 /**
  * Login endpoint
@@ -156,11 +57,21 @@ export async function loginHandler(
       });
     }
 
+    // 检查用户凭据配置
+    if (!env.USER_CREDENTIALS) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'User authentication not configured. Please set USER_CREDENTIALS in your configuration.'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     // 验证用户凭据
-    const userCredentials = env.USER_CREDENTIALS || '';
     const credentials = new Map<string, string>();
 
-    userCredentials.split(',').forEach(pair => {
+    env.USER_CREDENTIALS.split(',').forEach(pair => {
       const [username, password] = pair.trim().split(':');
       if (username && password) {
         credentials.set(username.trim(), password.trim());
@@ -319,19 +230,9 @@ export async function generateUrlHandler(
       return createUnauthorizedResponse('Authentication required');
     }
 
-    // Create OAuth state (Augment style)
-    const oauthState = await createAugmentOAuthState();
-
-    // Generate authorization URL
-    const authUrl = generateAugmentAuthorizeURL(oauthState);
-
-    return createSuccessResponse({
-      auth_url: authUrl,
-      code_verifier: oauthState.codeVerifier,
-      code_challenge: oauthState.codeChallenge,
-      state: oauthState.state,
-      creation_time: oauthState.creationTime,
-    }, '授权URL生成成功'); // 保留message，前端使用
+    // Use new OAuth module
+    const oauthHandlers = new OAuthHandlers(env);
+    return await oauthHandlers.handleAuthorize(request);
 
   } catch (error) {
     console.error('Generate URL error:', error);
@@ -367,30 +268,65 @@ export async function validateResponseHandler(
       };
     }>(request);
 
+    console.log('Validate response request:', {
+      authResponse: body.auth_response,
+      oauthState: body.oauth_state
+    });
+
     // Validate state parameter to prevent CSRF attacks
     if (body.auth_response.state !== body.oauth_state.state) {
+      console.error('State mismatch:', {
+        authResponseState: body.auth_response.state,
+        oauthStateState: body.oauth_state.state
+      });
       return createErrorResponse('state参数不匹配，可能存在安全风险', 400);
     }
 
     // Validate OAuth state expiration (30 minutes)
     const currentTime = Date.now();
-    if (currentTime - body.oauth_state.creation_time > 30 * 60 * 1000) {
+    const timeDiff = currentTime - body.oauth_state.creation_time;
+    console.log('OAuth state time validation:', {
+      currentTime,
+      creationTime: body.oauth_state.creation_time,
+      timeDiff,
+      timeDiffMinutes: Math.round(timeDiff / (1000 * 60)),
+      isExpired: timeDiff > 30 * 60 * 1000
+    });
+
+    if (timeDiff > 30 * 60 * 1000) {
       return createErrorResponse('OAuth状态已过期，请重新开始授权流程', 400);
     }
 
-    // Exchange authorization code for access token
-    const tokenResponse = await getAugmentAccessToken(
-      body.auth_response.tenant_url,
-      body.oauth_state.code_verifier,
-      body.auth_response.code
-    );
+    // Use new OAuth module for token exchange
+    const oauthHandlers = new OAuthHandlers(env);
 
-    return createSuccessResponse({
-      tenant_url: body.auth_response.tenant_url,
-      access_token: tokenResponse.access_token,
-      email: tokenResponse.email,
-      portal_url: tokenResponse.portal_url,
-    }, '授权响应验证成功'); // 保留message，前端使用
+    // Create code input in the expected format
+    const codeInput = JSON.stringify({
+      code: body.auth_response.code,
+      state: body.auth_response.state,
+      tenant_url: body.auth_response.tenant_url
+    });
+
+    // Convert frontend oauth_state to proper OAuthState format
+    const oauthState = {
+      codeVerifier: body.oauth_state.code_verifier,
+      codeChallenge: body.oauth_state.code_challenge,
+      state: body.oauth_state.state,
+      creationTime: body.oauth_state.creation_time
+    };
+
+    // Create a mock request for the token handler
+    const tokenRequest = new Request(request.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code_input: codeInput,
+        state: body.oauth_state.state,
+        oauth_state: oauthState
+      })
+    });
+
+    return await oauthHandlers.handleToken(tokenRequest);
 
   } catch (error) {
     console.error('Validate response error:', error);

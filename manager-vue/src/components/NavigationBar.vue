@@ -361,13 +361,15 @@ const handleLogout = async () => {
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--tblr-dark);
-  line-height: 1.2;
+  line-height: 1.3;
+  margin-bottom: 2px;
 }
 
 .brand-subtitle {
   font-size: 0.75rem;
   color: var(--tblr-muted);
-  line-height: 1;
+  line-height: 1.2;
+  margin-top: 0;
 }
 
 .nav-container {

@@ -20,9 +20,16 @@ import {
   deleteTokenHandler,
   batchImportTokensHandler,
   validateTokenStatusHandler,
+  batchValidateTokensHandler,
   refreshTokenHandler as refreshTokenInfoHandler,
   getTokenStatsHandler
 } from './routes/tokens.js';
+import {
+  getEmailDomainsHandler,
+  generateEmailHandler,
+  getVerificationCodeHandler,
+  emailHealthHandler
+} from './routes/email.js';
 
 /**
  * Route definitions
@@ -49,7 +56,14 @@ const routes: Route[] = [
   { method: 'PUT', path: '/api/tokens/:id', handler: updateTokenHandler, requiresAuth: true },
   { method: 'DELETE', path: '/api/tokens/:id', handler: deleteTokenHandler, requiresAuth: true },
   { method: 'POST', path: '/api/tokens/:id/validate', handler: validateTokenStatusHandler, requiresAuth: true },
+  { method: 'POST', path: '/api/tokens/batch-validate', handler: batchValidateTokensHandler, requiresAuth: true },
   { method: 'POST', path: '/api/tokens/:id/refresh', handler: refreshTokenInfoHandler, requiresAuth: true },
+
+  // Email service routes (integration points for email worker)
+  { method: 'GET', path: '/api/email/health', handler: emailHealthHandler, requiresAuth: true },
+  { method: 'GET', path: '/api/email/domains', handler: getEmailDomainsHandler, requiresAuth: true },
+  { method: 'POST', path: '/api/email/generate', handler: generateEmailHandler, requiresAuth: true },
+  { method: 'GET', path: '/api/email/verification-code', handler: getVerificationCodeHandler, requiresAuth: true },
 ];
 
 /**

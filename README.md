@@ -1,104 +1,145 @@
 # Augment Token Manager
 
-A simplified token management system with Vue.js frontend and Cloudflare Worker backend, focused on core token management and OAuth authorization.
+一个极简的Token管理系统，采用Vue.js前端和Cloudflare Worker后端，专注于核心Token管理和OAuth授权功能。
 
-## Project Structure
+## 项目结构
 
 ```
 augment-token-manager-worker/
-├── manager-vue/         # Vue.js Frontend Application
-├── manager-worker/      # Cloudflare Worker Backend API
+├── manager-vue/         # Vue.js 前端应用
+├── manager-worker/      # Cloudflare Worker 后端API
 ```
 
-## Features
+## 核心功能
 
-- **Session Authentication**: Simple session-based user authentication
-- **Token Management**: Complete CRUD operations for token records
-- **OAuth Authorization**: Augment OAuth flow with PKCE support
-- **Token Validation**: Real-time token status checking and refresh
-- **Rate Limiting**: Configurable API rate limiting and security
-- **CORS Support**: Cross-origin resource sharing for frontend integration
-- **KV Storage**: Cloudflare KV for scalable data persistence
+- **会话认证**: 简单的基于会话的用户认证
+- **Token管理**: 完整的Token记录CRUD操作
+- **OAuth授权**: Augment OAuth流程，支持PKCE
+- **Token验证**: 实时Token状态检查和刷新
+- **邮箱集成**: CloudMail邮箱服务集成（可选）
+- **极简配置**: 最少配置项，大部分参数硬编码
+- **KV存储**: Cloudflare KV可扩展数据持久化
 
-## Quick Start
+## 快速开始
 
-### Frontend (Vue.js)
+### 前端 (Vue.js)
 ```bash
 cd manager-vue
 npm install
 npm run dev
 ```
 
-### Backend (Cloudflare Worker)
+### 后端 (Cloudflare Worker)
 ```bash
 cd manager-worker
 npm install
 
-# Setup user credentials
-wrangler secret put USER_CREDENTIALS
-# Format: admin:your-password,user1:pass123
+# 检查配置
+npm run check-config
 
-# Start development server
+# 设置用户凭据（必需）
+wrangler secret put USER_CREDENTIALS
+# 格式: admin:your-password
+
+# 创建KV命名空间（极简：仅2个命名空间）
+npm run kv:create:dev  # 开发环境
+npm run kv:create:prod # 生产环境
+
+# 启动开发服务器
 npm run dev
 ```
 
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `GET /api/auth/validate` - Validate current session
-- `GET /api/auth/generate-url` - Generate OAuth authorization URL
-- `POST /api/auth/validate-response` - Validate OAuth response
-
-### Token Management
-- `GET /api/tokens` - List all tokens with pagination
-- `POST /api/tokens` - Create new token
-- `GET /api/tokens/:id` - Get token by ID
-- `PUT /api/tokens/:id` - Update token
-- `DELETE /api/tokens/:id` - Delete token
-- `POST /api/tokens/:id/validate` - Validate token status
-- `POST /api/tokens/:id/refresh` - Refresh token information
-- `POST /api/tokens/batch-import` - Batch import tokens
-- `GET /api/tokens/stats` - Get token statistics
-
-## Deployment
-
-### Production Deployment
+### 可选：邮箱功能配置
 ```bash
-# Build frontend
+# 在 wrangler.toml 中配置（可选）
+EMAIL_DOMAINS = ["your-domain1.com","your-domain2.com"]
+EMAIL_API_BASE_URL = "https://your-cloudmail-domain.com"
+EMAIL_API_TOKEN = "your-cloudmail-admin-token"
+```
+
+## API接口
+
+### 认证相关
+- `POST /api/auth/login` - 用户登录
+- `POST /api/auth/logout` - 用户登出
+- `GET /api/auth/validate` - 验证当前会话
+- `GET /api/auth/generate-url` - 生成OAuth授权URL
+- `POST /api/auth/validate-response` - 验证OAuth响应
+
+### Token管理
+- `GET /api/tokens` - 分页获取Token列表
+- `POST /api/tokens` - 创建新Token
+- `GET /api/tokens/:id` - 根据ID获取Token
+- `PUT /api/tokens/:id` - 更新Token
+- `DELETE /api/tokens/:id` - 删除Token
+- `POST /api/tokens/:id/validate` - 验证Token状态
+- `POST /api/tokens/:id/refresh` - 刷新Token信息
+- `POST /api/tokens/batch-import` - 批量导入Token
+- `GET /api/tokens/stats` - 获取Token统计
+
+### 邮箱服务（可选）
+- `GET /api/email/domains` - 获取可用邮箱域名
+- `POST /api/email/generate` - 生成临时邮箱
+- `GET /api/email/verification-code` - 获取验证码
+
+## 部署
+
+### 生产环境部署
+```bash
+# 构建前端
 cd manager-vue
 npm run build
 
-# Deploy worker
+# 部署Worker
 cd ../manager-worker
 wrangler deploy
 ```
 
-### Environment Setup
+### 环境配置
 ```bash
-# Set user credentials
+# 首先检查配置
+cd manager-worker
+npm run check-config
+
+# 设置用户凭据（必需）
 wrangler secret put USER_CREDENTIALS
-# Format: admin:your-password,user1:pass123
+# 格式: admin:your-password
+
+# 创建KV命名空间（极简结构）
+npm run kv:create:prod
 ```
 
-## Technology Stack
+## 配置说明
 
-### Frontend
-- Vue.js 3 with Composition API
+### 必需配置
+- **USER_CREDENTIALS**: 用户凭据（格式：admin:password）
+
+### 可选配置（邮箱功能）
+- **EMAIL_DOMAINS**: 邮箱域名列表
+- **EMAIL_API_BASE_URL**: CloudMail服务URL
+- **EMAIL_API_TOKEN**: CloudMail管理员令牌
+
+### 硬编码配置（无需设置）
+- 会话过期时间：24小时
+- 登录速率限制：10次/分钟
+- API速率限制：100次/分钟
+- Token验证超时：30秒
+
+## 技术栈
+
+### 前端
+- Vue.js 3 + Composition API
 - TypeScript
-- Tabler CSS Framework
-- Vite Build Tool
+- Bootstrap CSS框架
+- Vite构建工具
 
-### Backend
+### 后端
 - Cloudflare Workers
 - TypeScript
-- Session-based Authentication
-- KV Storage
-- CORS & Rate Limiting
+- 基于会话的认证
+- KV存储
+- 内置速率限制
 
-## License
-
-MIT License
+## 许可证
 
 MIT License

@@ -249,7 +249,13 @@ const handleLogin = async () => {
       router.push('/')
     } else {
       // 登录失败
-      const errorMsg = data.error || '登录失败，请重试'
+      let errorMsg = data.error || '登录失败，请重试'
+
+      // 检查是否是配置错误
+      if (data.error && data.error.includes('not configured')) {
+        errorMsg = '系统配置错误，请联系管理员'
+      }
+
       toast.error(errorMsg)
     }
   } catch (error) {

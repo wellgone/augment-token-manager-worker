@@ -20,22 +20,19 @@ const isLoginPage = computed(() => route.path === '/login')
   <div v-else class="page">
     <NavigationBar />
     <div class="page-wrapper">
-      <div class="page-body">
+      <div class="page-body" style="padding-bottom: 30px;">
         <div class="container-xl">
           <RouterView />
         </div>
       </div>
       <!-- 版权信息 -->
-      <footer class="footer footer-transparent d-print-none">
-        <div class="container-xl">
-          <div class="row text-center align-items-center flex-row-reverse">
-            <div class="col-12 col-lg-auto mt-3 mt-lg-0">
-              <ul class="list-inline list-inline-dots mb-0">
-                <li class="list-inline-item">
-                  &copy; 2025 KleinerSource. All rights reserved.
-                </li>
-              </ul>
-            </div>
+      <footer class="footer footer-transparent d-print-none" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-top: 1px solid var(--tblr-border-color-light); padding: 0;">
+        <div class="container-xl" style="padding-top: 8px; padding-bottom: 8px;">
+          <div class="text-center">
+            <span style="font-size: 0.75rem; color: var(--tblr-muted);">
+              &copy; 2025 qianshe. Powered by
+              <a href="https://github.com/KleinerSource/augment_token_manager_frontend" target="_blank" style="color: var(--tblr-primary); text-decoration: none;">KleinerSource</a>
+            </span>
           </div>
         </div>
       </footer>

@@ -1,4 +1,5 @@
 import { Env, TokenRecord, CreateTokenRequest, UpdateTokenRequest } from '../types/index.js';
+import { WorkerTokenValidator, TokenValidationResult } from './tokenValidator.js';
 
 /**
  * Generate a UUID v4
@@ -205,43 +206,41 @@ export class TokenService {
         return { isValid: false, status: 'Token缺少必要的字段', token };
       }
 
-      // 构建请求URL
-      const baseURL = token.tenant_url.replace(/\/$/, '');
-      const apiUrl = `${baseURL}/get-models`;
-
-      // 构建请求头
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token.access_token}`
-      };
-      // 发送验证请求
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: headers
-      });
+      // 使用新的Token验证模块，硬编码超时时间
+      const timeout = 30000; // 硬编码30秒超时
+      const validator = new WorkerTokenValidator({ enableDebug: false, timeout });
+      const validationResult: TokenValidationResult = await validator.validateToken(
+        token.access_token,
+        token.tenant_url
+      );
 
       let isValid = false;
       let status = '';
+      let banStatusValue = '';
 
-      if (response.ok) {
-        // 验证成功 - response.ok为true表示token有效
+      // 根据验证结果设置状态
+      if (validationResult.is_valid && !validationResult.is_banned) {
         isValid = true;
         status = 'Token状态正常';
+        banStatusValue = 'NORMAL';
+      } else if (validationResult.is_banned) {
+        isValid = false;
+        status = `Token已被封禁: ${validationResult.status}`;
+        banStatusValue = 'BANNED';
       } else {
-        // 验证失败 - response.ok为false表示token失效或其他错误
-        if (response.status === 401 || response.status === 403) {
-          isValid = false;
-          status = 'Token已失效';
-        } else {
-          isValid = false;
-          status = `验证失败，状态码: ${response.status}`;
-        }
+        isValid = false;
+        status = `Token已失效: ${validationResult.status}`;
+        banStatusValue = 'INVALID';
       }
 
-      // 更新ban_status，使用新的状态枚举
-      const banStatus = isValid
-        ? JSON.stringify({ status: 'NORMAL', reason: 'Token validation successful', updated_at: new Date().toISOString() })
-        : JSON.stringify({ status: 'INVALID', reason: 'Token validation failed', updated_at: new Date().toISOString() });
+      // 更新ban_status，使用新的状态枚举和详细信息
+      const banStatus = JSON.stringify({
+        status: banStatusValue,
+        reason: validationResult.error_message || status,
+        validation_status: validationResult.status,
+        response_code: validationResult.response_code,
+        updated_at: new Date().toISOString()
+      });
 
       const updatedToken: TokenRecord = {
         ...token,
@@ -266,6 +265,132 @@ export class TokenService {
         token,
       };
     }
+  }
+
+  /**
+   * Batch validate multiple tokens
+   */
+  async validateTokensBatch(tokenIds: string[]): Promise<Array<{
+    tokenId: string;
+    isValid: boolean;
+    status: string;
+    token?: TokenRecord;
+    error?: string;
+  }>> {
+    const results = [];
+
+    // 获取所有tokens
+    const tokens = await Promise.all(
+      tokenIds.map(id => this.getTokenById(id))
+    );
+
+    // 准备验证数据
+    const validTokens = tokens.filter(token => token !== null) as TokenRecord[];
+    const tokenPairs: Array<[string, string]> = validTokens
+      .filter(token => token.tenant_url && token.access_token)
+      .map(token => [token.access_token!, token.tenant_url!]);
+
+    if (tokenPairs.length === 0) {
+      return tokenIds.map(id => ({
+        tokenId: id,
+        isValid: false,
+        status: 'Token not found or missing required fields',
+        error: 'Invalid token data'
+      }));
+    }
+
+    // 使用批量验证，硬编码超时时间
+    const timeout = 30000; // 硬编码30秒超时
+    const validator = new WorkerTokenValidator({ enableDebug: false, timeout });
+    const validationResults = await validator.validateTokensBatch(tokenPairs, { concurrency: 3 });
+
+    // 处理结果
+    for (let i = 0; i < tokenIds.length; i++) {
+      const tokenId = tokenIds[i];
+      const token = tokens[i];
+
+      if (!token) {
+        results.push({
+          tokenId,
+          isValid: false,
+          status: 'Token not found',
+          error: 'Token not found'
+        });
+        continue;
+      }
+
+      if (!token.tenant_url || !token.access_token) {
+        results.push({
+          tokenId,
+          isValid: false,
+          status: 'Token缺少必要的字段',
+          token,
+          error: 'Missing required fields'
+        });
+        continue;
+      }
+
+      // 找到对应的验证结果
+      const validTokenIndex = validTokens.findIndex(t => t.id === tokenId);
+      const validationResult = validationResults[validTokenIndex];
+
+      if (validationResult instanceof Error) {
+        results.push({
+          tokenId,
+          isValid: false,
+          status: 'Validation error',
+          token,
+          error: validationResult.message
+        });
+        continue;
+      }
+
+      // 处理验证结果
+      let isValid = false;
+      let status = '';
+      let banStatusValue = '';
+
+      if (validationResult.is_valid && !validationResult.is_banned) {
+        isValid = true;
+        status = 'Token状态正常';
+        banStatusValue = 'NORMAL';
+      } else if (validationResult.is_banned) {
+        isValid = false;
+        status = `Token已被封禁: ${validationResult.status}`;
+        banStatusValue = 'BANNED';
+      } else {
+        isValid = false;
+        status = `Token已失效: ${validationResult.status}`;
+        banStatusValue = 'INVALID';
+      }
+
+      // 更新token状态
+      const banStatus = JSON.stringify({
+        status: banStatusValue,
+        reason: validationResult.error_message || status,
+        validation_status: validationResult.status,
+        response_code: validationResult.response_code,
+        updated_at: new Date().toISOString()
+      });
+
+      const updatedToken: TokenRecord = {
+        ...token,
+        ban_status: banStatus,
+        updated_at: new Date().toISOString(),
+      };
+
+      // 保存更新的token
+      await this.env.TOKENS_KV.put(`token:${tokenId}`, JSON.stringify(updatedToken));
+
+      results.push({
+        tokenId,
+        isValid,
+        status,
+        token: updatedToken
+      });
+    }
+
+    return results;
   }
 
   /**

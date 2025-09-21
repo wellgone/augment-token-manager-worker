@@ -3,7 +3,6 @@ import {
   generateSessionToken,
   generateSessionId,
   hashPassword,
-  verifyPassword,
   parseUserCredentials,
   getSessionExpirationTime
 } from '../utils/auth.js';
@@ -24,8 +23,13 @@ export class AuthService {
   }> {
     const { username, password } = credentials;
 
+    // Check if user credentials are configured
+    if (!this.env.USER_CREDENTIALS) {
+      throw new Error('User authentication not configured. Please set USER_CREDENTIALS in your configuration.');
+    }
+
     // Parse user credentials from environment variable
-    const userCredentials = parseUserCredentials(this.env.USER_CREDENTIALS || '');
+    const userCredentials = parseUserCredentials(this.env.USER_CREDENTIALS);
 
     // Check if user exists and password is correct
     const storedPassword = userCredentials.get(username);
@@ -60,17 +64,15 @@ export class AuthService {
       userAgent: undefined, // Will be set by middleware
     };
 
-    // Store session in KV with session token as key
+    // Store session in KV with session token as key, include user data
+    const sessionWithUser = {
+      ...session,
+      user: user // Include user data in session
+    };
+
     await this.env.SESSIONS_KV.put(
       `session:${sessionToken}`,
-      JSON.stringify(session),
-      { expirationTtl: 24 * 60 * 60 } // 24 hours
-    );
-
-    // Store user in KV (for session validation)
-    await this.env.USERS_KV.put(
-      `user:${user.id}`,
-      JSON.stringify(user),
+      JSON.stringify(sessionWithUser),
       { expirationTtl: 24 * 60 * 60 } // 24 hours
     );
 
@@ -91,17 +93,39 @@ export class AuthService {
   }
 
   /**
-   * Get user by ID
+   * Get user by ID from USER_CREDENTIALS
    */
   async getUserById(userId: string): Promise<User | null> {
-    const userData = await this.env.USERS_KV.get(`user:${userId}`);
-    return userData ? JSON.parse(userData) : null;
+    if (!this.env.USER_CREDENTIALS) {
+      return null;
+    }
+
+    const username = userId.replace('user-', '');
+    const userCredentials = parseUserCredentials(this.env.USER_CREDENTIALS);
+
+    if (!userCredentials.has(username)) {
+      return null;
+    }
+
+    // Create user object from credentials
+    const user: User = {
+      id: userId,
+      username,
+      email: `${username}@example.com`,
+      passwordHash: '', // Don't expose password hash
+      role: username === 'admin' ? 'admin' : 'user',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isActive: true,
+    };
+
+    return user;
   }
 
   /**
-   * Get session by token
+   * Get session by token (now includes user data)
    */
-  async getSessionByToken(sessionToken: string): Promise<UserSession | null> {
+  async getSessionByToken(sessionToken: string): Promise<(UserSession & { user?: User }) | null> {
     const sessionData = await this.env.SESSIONS_KV.get(`session:${sessionToken}`);
     return sessionData ? JSON.parse(sessionData) : null;
   }
@@ -130,80 +154,6 @@ export class AuthService {
     return user;
   }
 
-  /**
-   * Create a new user (admin only)
-   */
-  async createUser(userData: {
-    username: string;
-    password: string;
-    email?: string;
-    role: 'admin' | 'user';
-  }): Promise<User> {
-    const userId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const passwordHash = await hashPassword(userData.password);
-    
-    const user: User = {
-      id: userId,
-      username: userData.username,
-      email: userData.email,
-      passwordHash,
-      role: userData.role,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isActive: true,
-    };
-    
-    // Store user in KV
-    await this.env.USERS_KV.put(`user:${userId}`, JSON.stringify(user));
-    
-    return user;
-  }
-
-  /**
-   * Update user
-   */
-  async updateUser(userId: string, updates: Partial<User>): Promise<User | null> {
-    const user = await this.getUserById(userId);
-    if (!user) {
-      return null;
-    }
-    
-    const updatedUser: User = {
-      ...user,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-    
-    // If password is being updated, hash it
-    if (updates.passwordHash) {
-      updatedUser.passwordHash = await hashPassword(updates.passwordHash);
-    }
-    
-    await this.env.USERS_KV.put(`user:${userId}`, JSON.stringify(updatedUser));
-    
-    return updatedUser;
-  }
-
-  /**
-   * Delete user
-   */
-  async deleteUser(userId: string): Promise<boolean> {
-    const user = await this.getUserById(userId);
-    if (!user) {
-      return false;
-    }
-    
-    await this.env.USERS_KV.delete(`user:${userId}`);
-    return true;
-  }
-
-  /**
-   * List all users (admin only)
-   */
-  async listUsers(): Promise<User[]> {
-    // KV doesn't support listing all keys easily
-    // In a real implementation, you'd use D1 database or maintain an index
-    // For now, return empty array
-    return [];
-  }
+  // User management methods removed - users are managed via USER_CREDENTIALS environment variable
+  // No need for createUser, updateUser, deleteUser, listUsers since users are hardcoded
 }
