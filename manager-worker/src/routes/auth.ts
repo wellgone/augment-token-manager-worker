@@ -121,7 +121,7 @@ export async function loginHandler(
         sessionToken: sessionToken,
         expiresIn: '24h'
       },
-      message: 'Login successful'
+      message: '登录成功'
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
@@ -159,7 +159,7 @@ export async function logoutHandler(
 
     return new Response(JSON.stringify({
       success: true,
-      message: 'Logout successful'
+      message: '退出登录成功'
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

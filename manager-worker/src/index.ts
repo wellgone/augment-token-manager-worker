@@ -47,6 +47,9 @@ const routes: Route[] = [
   { method: 'GET', path: '/api/auth/generate-url', handler: generateUrlHandler, requiresAuth: true },
   { method: 'POST', path: '/api/auth/validate-response', handler: validateResponseHandler, requiresAuth: true },
 
+  // Alias endpoint for frontend compatibility
+  { method: 'POST', path: '/api/auth/save-token', handler: createTokenHandler, requiresAuth: true },
+
   // Token management routes
   { method: 'GET', path: '/api/tokens', handler: getTokensHandler, requiresAuth: true },
   { method: 'POST', path: '/api/tokens', handler: createTokenHandler, requiresAuth: true },
@@ -76,7 +79,7 @@ async function healthHandler(
 ): Promise<Response> {
   return new Response(JSON.stringify({
     status: 'ok',
-    message: 'Augment Token Manager Worker is running',
+    message: 'Augment Token Manager Worker 正在运行',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
   }), {

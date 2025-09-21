@@ -147,7 +147,7 @@ export async function createTokenHandler(
     const tokenService = new TokenService(env);
     const token = await tokenService.createToken(body, user.id);
     
-    return createSuccessResponse(token, 'Token created successfully', 201); // 保留message，前端使用
+    return createSuccessResponse(token, 'Token保存成功', 201); // 保留message，前端使用
     
   } catch (error) {
     console.error('Create token error:', error);
@@ -204,7 +204,7 @@ export async function updateTokenHandler(
       return createNotFoundResponse('Token not found');
     }
     
-    return createSuccessResponse(updatedToken, 'Token updated successfully'); // 保留message，前端使用
+    return createSuccessResponse(updatedToken, 'Token更新成功'); // 保留message，前端使用
     
   } catch (error) {
     console.error('Update token error:', error);
@@ -252,7 +252,7 @@ export async function deleteTokenHandler(
       return createNotFoundResponse('Token not found');
     }
     
-    return createSuccessResponse(null, 'Token deleted successfully'); // 保留message，前端使用
+    return createSuccessResponse(null, 'Token删除成功'); // 保留message，前端使用
     
   } catch (error) {
     console.error('Delete token error:', error);
@@ -296,7 +296,7 @@ export async function batchImportTokensHandler(
       failed: result.failed.length,
       success: result.success,
       errors: result.failed,
-    }, `Batch import completed. ${result.success.length} tokens imported, ${result.failed.length} failed.`);
+    }, `批量导入完成。导入 ${result.success.length} 条，失败 ${result.failed.length} 条。`);
     
   } catch (error) {
     console.error('Batch import error:', error);
@@ -461,7 +461,7 @@ export async function refreshTokenHandler(
       return createNotFoundResponse('Token not found');
     }
     
-    return createSuccessResponse(refreshedToken, 'Token information refreshed'); // 保留message，前端使用
+    return createSuccessResponse(refreshedToken, 'Token信息已刷新'); // 保留message，前端使用
     
   } catch (error) {
     console.error('Refresh token error:', error);
