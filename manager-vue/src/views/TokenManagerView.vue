@@ -499,53 +499,19 @@
                   <div class="row g-4">
                     <!-- 邮箱生成设置 -->
                     <div class="col-lg-6" v-if="!isReactivateMode">
-                      <!-- 邮箱配置区域 - 减少高度和留白 -->
-                      <div class="mb-2" style="padding-top: 8px;">
+                      <!-- 简化的邮箱配置区域 -->
+                      <div class="mb-3">
                         <label class="form-label fw-semibold">
-                          <i class="bi bi-gear me-1"></i>
-                          邮箱类型
+                          <i class="bi bi-globe me-1"></i>
+                          域名选择
                         </label>
-                        <select v-model="emailType" class="form-select">
-                          <option value="mixed">混合（字母+数字）</option>
-                          <option value="word">单词（含前缀）</option>
+                        <select v-model="selectedDomain" class="form-select">
+                          <option value="">随机选择</option>
+                          <option v-for="domain in emailDomains" :key="domain" :value="domain">
+                            {{ domain }}
+                          </option>
+                          <option value="custom">自定义域名</option>
                         </select>
-                      </div>
-
-                      <!-- 分割线 -->
-                      <div class="border-top pt-2"></div>
-
-                      <div class="row">
-                        <div class="col-sm-6">
-                          <div class="mb-3">
-                            <label class="form-label fw-semibold">
-                              <i class="bi bi-rulers me-1"></i>
-                              长度
-                            </label>
-                            <input
-                              type="number"
-                              v-model="emailLength"
-                              class="form-control"
-                              min="8"
-                              max="15"
-                              placeholder="8-15字符"
-                            >
-                          </div>
-                        </div>
-                        <div class="col-sm-6">
-                          <div class="mb-3">
-                            <label class="form-label fw-semibold">
-                              <i class="bi bi-globe me-1"></i>
-                              域名
-                            </label>
-                            <select v-model="selectedDomain" class="form-select">
-                              <option value="">随机选择</option>
-                              <option v-for="domain in emailDomains" :key="domain" :value="domain">
-                                {{ domain }}
-                              </option>
-                              <option value="custom">自定义域名</option>
-                            </select>
-                          </div>
-                        </div>
                       </div>
 
                       <div class="mb-3" v-if="selectedDomain === 'custom'">
@@ -561,18 +527,10 @@
                         >
                       </div>
 
-                      <div class="mb-3" v-if="emailType === 'word'">
-                        <label class="form-label fw-semibold">
-                          <i class="bi bi-type me-1"></i>
-                          前缀（可选）
-                        </label>
-                        <input
-                          type="text"
-                          v-model="emailPrefix"
-                          class="form-control"
-                          placeholder="输入前缀"
-                          maxlength="10"
-                        >
+                      <!-- 邮箱生成说明 -->
+                      <div class="alert alert-info py-2 px-3 mb-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <small>将生成格式如 <code>happy_moon168</code> 或 <code>quicksun</code> 的智能邮箱名称</small>
                       </div>
                     </div>
 
@@ -1686,12 +1644,9 @@ const generatedEmail = ref('')
 const emailDomains = ref<string[]>([])
 const selectedDomain = ref('')
 const customDomain = ref('')
-const emailType = ref('mixed')
-const emailPrefix = ref('')
 const manualEmail = ref('')
 const currentEmail = computed(() => (manualEmail.value.trim() ? manualEmail.value.trim() : generatedEmail.value))
 
-const emailLength = ref(10)
 const isGeneratingEmail = ref(false)
 const verificationCode = ref('')
 const verificationEmail = ref('')
@@ -2410,9 +2365,6 @@ const showGetTokenModal = (isReactivate = false) => {
 
   selectedDomain.value = ''
   customDomain.value = ''
-  emailType.value = 'mixed'
-  emailPrefix.value = ''
-  emailLength.value = 10
 
   // 验证码相关数据总是清空，每次都重新获取
   verificationCode.value = ''
@@ -3281,15 +3233,12 @@ const generateEmail = async () => {
 
   isGeneratingEmail.value = true
   try {
+    // 固定使用 twowords 类型，生成智能邮箱名称
     const options: any = {
-      type: emailType.value,
-      length: emailLength.value || 10
+      type: 'twowords'
     }
 
-    if (emailType.value === 'word' && emailPrefix.value) {
-      options.prefix = emailPrefix.value
-    }
-
+    // 处理域名选择
     if (selectedDomain.value === 'custom' && customDomain.value) {
       if (!customDomain.value.trim()) {
         toast.error('请输入自定义域名')
@@ -3309,7 +3258,7 @@ const generateEmail = async () => {
       if (data.data.availableDomains) {
         emailDomains.value = data.data.availableDomains
       }
-      toast.success('邮箱生成成功')
+      toast.success('智能邮箱生成成功')
     } else {
       // 检查是否是配置错误
       if (data.error && data.error.includes('not configured')) {
