@@ -1,4 +1,5 @@
 import { Env } from '../types/index.js';
+import { getTwoRandomWords, getRandomNumber } from '../utils/wordManager.js';
 
 /**
  * Email Service for managing temporary email generation and verification code retrieval
@@ -45,7 +46,7 @@ export class EmailService {
    * Enhanced to support custom domains from frontend
    */
   async generateRandomEmail(options: {
-    type?: 'mixed' | 'word';
+    type?: 'mixed' | 'word' | 'twowords';
     prefix?: string;
     length?: number;
     domain?: string;
@@ -259,6 +260,9 @@ export class EmailService {
       case 'word':
         localPart = this.generateWordBasedEmail(prefix, length);
         break;
+      case 'twowords':
+        localPart = this.generateTwoWordsEmail();
+        break;
       default:
         localPart = this.generateRandomLocalPart(length);
     }
@@ -338,6 +342,52 @@ export class EmailService {
     }
 
     return base.toLowerCase();
+  }
+
+  /**
+   * Generate two-words based email with random connector and optional number
+   * Private helper method for twowords type email generation
+   * Formats: word1word2, word1_word2, word1-word2, word1word2123, word1_word2123, word1-word2123
+   */
+  private generateTwoWordsEmail(): string {
+    try {
+      // Get two different random words (3-6 letters each)
+      const [word1, word2] = getTwoRandomWords();
+
+      // Random connector selection (no digit separators)
+      const connectors = ['', '_', '-'];
+      const connector = connectors[Math.floor(Math.random() * connectors.length)];
+
+      // Random decision: 60% chance to add number at the end
+      const addNumber = Math.random() < 0.6;
+      let numberSuffix = '';
+
+      if (addNumber) {
+        // Get random 2-3 digit number
+        const number = getRandomNumber();
+        numberSuffix = number.toString();
+      }
+
+      // Combine: word1[connector]word2[number]
+      return `${word1}${connector}${word2}${numberSuffix}`;
+    } catch (error) {
+      console.error('Failed to generate two-words email, falling back to simple generation:', error);
+
+      // Fallback to simple word + number generation
+      const fallbackWords = ['happy', 'lucky', 'smart', 'quick', 'bright', 'cool'];
+      const word1 = fallbackWords[Math.floor(Math.random() * fallbackWords.length)];
+      const word2 = fallbackWords[Math.floor(Math.random() * fallbackWords.length)];
+
+      // Random connector for fallback too
+      const connectors = ['', '_', '-'];
+      const connector = connectors[Math.floor(Math.random() * connectors.length)];
+
+      // Random number suffix for fallback
+      const addNumber = Math.random() < 0.6;
+      const numberSuffix = addNumber ? (Math.floor(Math.random() * 900) + 100).toString() : '';
+
+      return `${word1}${connector}${word2}${numberSuffix}`;
+    }
   }
 
   /**

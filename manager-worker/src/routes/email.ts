@@ -29,12 +29,20 @@ export async function getEmailDomainsHandler(request: Request, env: Env): Promis
  *
  * Request body:
  * {
- *   "type": "mixed" | "word",     // Optional, default: "mixed"
- *   "prefix": "string",           // Optional
- *   "length": number,             // Optional, 0 for random
- *   "domain": "string",           // Optional, uses random if not provided
- *   "customDomain": "string"      // Optional, custom domain input from frontend
+ *   "type": "mixed" | "word" | "twowords",  // Optional, default: "mixed"
+ *                                           // "mixed": random letters+numbers
+ *                                           // "word": single word + random chars
+ *                                           // "twowords": word1_word2123 format
+ *   "prefix": "string",                     // Optional, used with "word" type
+ *   "length": number,                       // Optional, 0 for random (ignored for "twowords")
+ *   "domain": "string",                     // Optional, uses random if not provided
+ *   "customDomain": "string"                // Optional, custom domain input from frontend
  * }
+ *
+ * Examples:
+ * - type: "mixed" ?? "abc123def@domain.com"
+ * - type: "word" ?? "happyuser123@domain.com"
+ * - type: "twowords" ? "wellapple@domain.com", "well_apple168@domain.com", "well-apple@domain.com", "quickmoon123@domain.com"
  */
 export async function generateEmailHandler(request: Request, env: Env): Promise<Response> {
   try {
